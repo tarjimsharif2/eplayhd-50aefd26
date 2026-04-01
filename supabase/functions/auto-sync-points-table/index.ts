@@ -6,6 +6,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface TournamentMatchRow {
+  team_a_id: string | null;
+  team_b_id: string | null;
+}
+
+interface ExistingPointsRow {
+  id: string;
+  team_id: string;
+}
+
 // Sync points table for a specific tournament from Cricbuzz API
 async function syncTournamentPoints(
   supabase: any,
@@ -76,7 +86,9 @@ async function syncTournamentPoints(
   }
 
   const matchTeamIds = Array.from(new Set(
-    (tournamentMatches || []).flatMap((match) => [match.team_a_id, match.team_b_id]).filter(Boolean)
+    ((tournamentMatches || []) as TournamentMatchRow[])
+      .flatMap((match) => [match.team_a_id, match.team_b_id])
+      .filter((teamId): teamId is string => Boolean(teamId))
   ));
 
   const { allowedTeamIds } = resolveTournamentTeamScope({
@@ -98,7 +110,7 @@ async function syncTournamentPoints(
     return { tournament: tournament.name, seriesId, updated: 0, inserted: 0, skipped: ['Failed to inspect existing points rows'] };
   }
 
-  const outOfScopeRowIds = (existingRows || [])
+  const outOfScopeRowIds = ((existingRows || []) as ExistingPointsRow[])
     .filter((row) => !allowedTeamIds.has(row.team_id))
     .map((row) => row.id);
 

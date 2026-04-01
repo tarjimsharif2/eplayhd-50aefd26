@@ -7,6 +7,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface TournamentMatchRow {
+  team_a_id: string | null;
+  team_b_id: string | null;
+}
+
+interface ExistingPointsRow {
+  id: string;
+  team_id: string;
+}
+
 // Helper function to fetch with retry logic (skips retry on 429)
 async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
   let lastError: Error | null = null;
@@ -174,7 +184,9 @@ Deno.serve(async (req) => {
     }
 
     const matchTeamIds = Array.from(new Set(
-      (tournamentMatches || []).flatMap((match) => [match.team_a_id, match.team_b_id]).filter(Boolean)
+      ((tournamentMatches || []) as TournamentMatchRow[])
+        .flatMap((match) => [match.team_a_id, match.team_b_id])
+        .filter((teamId): teamId is string => Boolean(teamId))
     ));
 
     const {
@@ -209,7 +221,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const outOfScopeRowIds = (existingRows || [])
+    const outOfScopeRowIds = ((existingRows || []) as ExistingPointsRow[])
       .filter((row) => !allowedTeamIds.has(row.team_id))
       .map((row) => row.id);
 
