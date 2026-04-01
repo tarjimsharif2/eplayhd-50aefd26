@@ -109,9 +109,11 @@ const PointsTable = ({ tournamentId, tournamentName, compact = false, syncTime, 
     });
   };
 
-  const formatNRR = (nrr: number) => {
-    const formatted = nrr.toFixed(3);
-    return nrr >= 0 ? `+${formatted}` : formatted;
+  const formatNRR = (nrr: unknown) => {
+    const num = Number(nrr);
+    if (!Number.isFinite(num)) return '+0.000';
+    const formatted = num.toFixed(3);
+    return num >= 0 ? `+${formatted}` : formatted;
   };
 
   return (

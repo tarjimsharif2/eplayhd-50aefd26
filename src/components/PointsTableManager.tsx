@@ -410,8 +410,8 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
                   <td className="text-center py-2 px-1">{entry.tied}</td>
                   <td className="text-center py-2 px-1">{entry.no_result}</td>
                   <td className="text-center py-2 px-1">
-                    <span className={entry.net_run_rate >= 0 ? 'text-green-500' : 'text-red-500'}>
-                      {entry.net_run_rate >= 0 ? '+' : ''}{entry.net_run_rate.toFixed(3)}
+                    <span className={(Number(entry.net_run_rate) || 0) >= 0 ? 'text-green-500' : 'text-red-500'}>
+                      {(() => { const n = Number(entry.net_run_rate); return Number.isFinite(n) ? `${n >= 0 ? '+' : ''}${n.toFixed(3)}` : '+0.000'; })()}
                     </span>
                   </td>
                   <td className="text-center py-2 px-1 font-bold">{entry.points}</td>
