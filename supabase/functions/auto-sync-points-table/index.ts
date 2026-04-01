@@ -1,31 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { parseNetRunRate, resolveTournamentTeamScope, teamsMatchStrict } from '../_shared/points-table.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-// Normalize team name for matching
-const normalizeTeamName = (name: string): string => {
-  return (name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
-};
-
-// STRICT team name matching
-const teamsMatchStrict = (dbTeam: { name: string; short_name: string }, apiTeamName: string, apiTeamFullName?: string): boolean => {
-  const dbShort = (dbTeam.short_name || '').toLowerCase().trim();
-  const dbName = normalizeTeamName(dbTeam.name);
-  const apiShort = (apiTeamName || '').toLowerCase().trim();
-  const apiName = normalizeTeamName(apiTeamFullName || '');
-  
-  if (!dbShort || !apiShort) return false;
-  
-  if (dbShort === apiShort) return true;
-  if (apiName && dbName && dbName === apiName) return true;
-  if (apiName.includes(dbShort) && dbShort.length >= 2 && apiShort.length === dbShort.length) {
-    return true;
-  }
-  
-  return false;
 };
 
 // Sync points table for a specific tournament from Cricbuzz API
@@ -88,6 +66,53 @@ async function syncTournamentPoints(
   let insertedCount = 0;
   let skippedTeams: string[] = [];
 
+  const { data: tournamentMatches, error: matchesError } = await supabase
+    .from('matches')
+    .select('team_a_id, team_b_id')
+    .eq('tournament_id', tournament.id);
+
+  if (matchesError) {
+    return { tournament: tournament.name, seriesId, updated: 0, inserted: 0, skipped: ['Failed to fetch tournament teams'] };
+  }
+
+  const matchTeamIds = Array.from(new Set(
+    (tournamentMatches || []).flatMap((match) => [match.team_a_id, match.team_b_id]).filter(Boolean)
+  ));
+
+  const { allowedTeamIds } = resolveTournamentTeamScope({
+    teams,
+    customParticipatingTeams: tournament.custom_participating_teams,
+    matchTeamIds,
+  });
+
+  if (allowedTeamIds.size === 0) {
+    return { tournament: tournament.name, seriesId, updated: 0, inserted: 0, skipped: ['No fixed participant teams found'] };
+  }
+
+  const { data: existingRows, error: existingRowsError } = await supabase
+    .from('tournament_points_table')
+    .select('id, team_id')
+    .eq('tournament_id', tournament.id);
+
+  if (existingRowsError) {
+    return { tournament: tournament.name, seriesId, updated: 0, inserted: 0, skipped: ['Failed to inspect existing points rows'] };
+  }
+
+  const outOfScopeRowIds = (existingRows || [])
+    .filter((row) => !allowedTeamIds.has(row.team_id))
+    .map((row) => row.id);
+
+  if (outOfScopeRowIds.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('tournament_points_table')
+      .delete()
+      .in('id', outOfScopeRowIds);
+
+    if (deleteError) {
+      return { tournament: tournament.name, seriesId, updated: 0, inserted: 0, skipped: ['Failed to remove out-of-scope teams'] };
+    }
+  }
+
   for (const group of pointsTable) {
     const groupTable = group.pointsTableInfo || [];
     const groupName = group.groupName || null;
@@ -107,6 +132,11 @@ async function syncTournamentPoints(
         continue;
       }
 
+      if (!allowedTeamIds.has(matchingTeam.id)) {
+        skippedTeams.push(`${apiTeamName} (${apiTeamFullName}) [out of scope]`);
+        continue;
+      }
+
       const played = parseInt(standing.matchesPlayed || 0) || 0;
       const won = parseInt(standing.matchesWon || 0) || 0;
       const lost = parseInt(standing.matchesLost || 0) || 0;
@@ -114,12 +144,11 @@ async function syncTournamentPoints(
       const noResult = parseInt(standing.noRes || standing.noResult || 0) || 0;
       const points = parseInt(standing.points || 0) || 0;
       const position = parseInt(standing.position || 0) || 0;
-      const apiNrr = parseFloat(standing.nrr || '0') || 0;
 
       // Query by group_name to handle teams in multiple groups
       let existingQuery = supabase
         .from('tournament_points_table')
-        .select('id')
+        .select('id, net_run_rate')
         .eq('tournament_id', tournament.id)
         .eq('team_id', matchingTeam.id);
       
@@ -131,6 +160,9 @@ async function syncTournamentPoints(
       
       const { data: existing } = await existingQuery.maybeSingle();
 
+      const apiNrr = parseNetRunRate(standing.nrr);
+      const netRunRate = apiNrr ?? existing?.net_run_rate ?? 0;
+
       const entryData = {
         tournament_id: tournament.id,
         team_id: matchingTeam.id,
@@ -141,7 +173,7 @@ async function syncTournamentPoints(
         tied,
         no_result: noResult,
         points,
-        net_run_rate: apiNrr,
+        net_run_rate: netRunRate,
         group_name: groupName,
         updated_at: new Date().toISOString(),
       };
@@ -224,7 +256,7 @@ Deno.serve(async (req) => {
     // === CHECK 1: Daily sync tournaments (time-based) ===
     const { data: dailyTournaments } = await supabase
       .from('tournaments')
-      .select('id, name, series_id, points_table_sync_time, points_table_daily_sync_enabled, points_table_on_complete_sync_enabled')
+      .select('id, name, series_id, custom_participating_teams, points_table_sync_time, points_table_daily_sync_enabled, points_table_on_complete_sync_enabled')
       .eq('is_active', true)
       .eq('is_completed', false)
       .eq('points_table_daily_sync_enabled', true)
@@ -270,7 +302,7 @@ Deno.serve(async (req) => {
     // === CHECK 2: On-complete sync (recently completed matches) ===
     const { data: onCompleteTournaments } = await supabase
       .from('tournaments')
-      .select('id, name, series_id, points_table_on_complete_sync_enabled')
+      .select('id, name, series_id, custom_participating_teams, points_table_on_complete_sync_enabled')
       .eq('is_active', true)
       .eq('is_completed', false)
       .eq('points_table_on_complete_sync_enabled', true)

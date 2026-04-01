@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { verifyAdminAuth, unauthorizedResponse, forbiddenResponse } from '../_shared/auth.ts';
+import { parseNetRunRate, resolveTournamentTeamScope, teamsMatchStrict } from '../_shared/points-table.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,36 +43,6 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3)
   
   throw lastError || new Error('Failed to fetch after retries');
 }
-
-// Normalize team name for matching
-const normalizeTeamName = (name: string): string => {
-  return (name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
-};
-
-// STRICT team name matching - must match short_name EXACTLY or full name EXACTLY
-const teamsMatchStrict = (dbTeam: { name: string; short_name: string }, apiTeamName: string, apiTeamFullName?: string): boolean => {
-  const dbShort = (dbTeam.short_name || '').toLowerCase().trim();
-  const dbName = normalizeTeamName(dbTeam.name);
-  const apiShort = (apiTeamName || '').toLowerCase().trim();
-  const apiName = normalizeTeamName(apiTeamFullName || '');
-  
-  if (!dbShort || !apiShort) return false;
-  
-  // Priority 1: Exact short name match - most reliable
-  if (dbShort === apiShort) return true;
-  
-  // Priority 2: Exact full name match
-  if (apiName && dbName && dbName === apiName) return true;
-  
-  // Priority 3: Short name contained within API team name exactly (e.g., "UAE" matches "United Arab Emirates" if dbShort === "uae")
-  // But API short name must not contain extra characters (to avoid IND matching INDW)
-  if (apiName.includes(dbShort) && dbShort.length >= 2 && apiShort.length === dbShort.length) {
-    return true;
-  }
-  
-  // No fuzzy matching - this prevents IND from matching INDU19, INDW etc.
-  return false;
-};
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -165,7 +136,7 @@ Deno.serve(async (req) => {
     // Get tournament details
     const { data: tournament, error: tournamentError } = await supabase
       .from('tournaments')
-      .select('id, name, season')
+      .select('id, name, season, custom_participating_teams')
       .eq('id', tournamentId)
       .single();
 
@@ -189,6 +160,72 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[sync-points-table] Total teams in database: ${teams.length}`);
+
+    const { data: tournamentMatches, error: matchesError } = await supabase
+      .from('matches')
+      .select('team_a_id, team_b_id')
+      .eq('tournament_id', tournamentId);
+
+    if (matchesError) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to fetch tournament teams' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const matchTeamIds = Array.from(new Set(
+      (tournamentMatches || []).flatMap((match) => [match.team_a_id, match.team_b_id]).filter(Boolean)
+    ));
+
+    const {
+      allowedTeamIds,
+      scopeSource,
+      unresolvedCustomTeams,
+    } = resolveTournamentTeamScope({
+      teams,
+      customParticipatingTeams: tournament.custom_participating_teams,
+      matchTeamIds,
+    });
+
+    if (allowedTeamIds.size === 0) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'No fixed participant teams found for this tournament. Add participating teams or matches first.',
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { data: existingRows, error: existingRowsError } = await supabase
+      .from('tournament_points_table')
+      .select('id, team_id')
+      .eq('tournament_id', tournamentId);
+
+    if (existingRowsError) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to inspect existing points table rows' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const outOfScopeRowIds = (existingRows || [])
+      .filter((row) => !allowedTeamIds.has(row.team_id))
+      .map((row) => row.id);
+
+    if (outOfScopeRowIds.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('tournament_points_table')
+        .delete()
+        .in('id', outOfScopeRowIds);
+
+      if (deleteError) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Failed to remove out-of-scope teams from the points table' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     // If still no seriesId after auto-fetch, ask user (manual calls) or skip (automated)
     if (!seriesId) {
@@ -281,6 +318,12 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        if (!allowedTeamIds.has(matchingTeam.id)) {
+          console.log(`[sync-points-table] Skipping out-of-scope team: ${apiTeamName} (${apiTeamFullName})`);
+          skippedTeams.push(`${apiTeamName} (${apiTeamFullName}) [out of scope]`);
+          continue;
+        }
+
         console.log(`[sync-points-table] Matched ${apiTeamName} (${apiTeamFullName}) -> ${matchingTeam.name} (${matchingTeam.short_name}) [Group: ${groupName || 'None'}]`);
 
         // Parse Cricbuzz standing data
@@ -292,9 +335,6 @@ Deno.serve(async (req) => {
         const points = parseInt(standing.points || 0) || 0;
         const position = parseInt(standing.position || 0) || 0;
         
-        // Get NRR from API - parse the string to float
-        const apiNrr = parseFloat(standing.nrr || '0') || 0;
-
         // Check if entry exists for this specific group
         let existingQuery = supabase
           .from('tournament_points_table')
@@ -310,6 +350,9 @@ Deno.serve(async (req) => {
         
         const { data: existing } = await existingQuery.maybeSingle();
 
+        const apiNrr = parseNetRunRate(standing.nrr);
+        const netRunRate = apiNrr ?? existing?.net_run_rate ?? 0;
+
         const entryData = {
           tournament_id: tournamentId,
           team_id: matchingTeam.id,
@@ -320,8 +363,7 @@ Deno.serve(async (req) => {
           tied,
           no_result: noResult,
           points,
-          // Use API NRR directly
-          net_run_rate: apiNrr,
+          net_run_rate: netRunRate,
           // Include group name from API
           group_name: groupName,
           updated_at: new Date().toISOString(),
@@ -367,7 +409,10 @@ Deno.serve(async (req) => {
         message: `Points table synced and positions recalculated`,
         updated: updatedCount,
         inserted: insertedCount,
+        removed: outOfScopeRowIds.length,
         skippedTeams: skippedTeams.length > 0 ? skippedTeams : undefined,
+        unresolvedCustomTeams: unresolvedCustomTeams.length > 0 ? unresolvedCustomTeams : undefined,
+        scopeSource,
         seriesId,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
