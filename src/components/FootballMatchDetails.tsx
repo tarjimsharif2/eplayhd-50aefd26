@@ -7,7 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, Goal, ArrowRightLeft, Shirt, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import FootballPitchLineup from '@/components/FootballPitchLineup';
-import { motion } from 'framer-motion';
 import { Team, GoalEvent } from '@/hooks/useSportsData';
 import FootballTimer from '@/components/FootballTimer';
 
