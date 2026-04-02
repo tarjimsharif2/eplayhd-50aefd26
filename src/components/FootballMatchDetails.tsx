@@ -356,12 +356,16 @@ const FootballMatchDetails = ({ matchId, teamA, teamB, goalsTeamA, goalsTeamB, s
               </TabsTrigger>
             </TabsList>
 
-            {/* Lineups Tab */}
+            {/* Lineups Tab - Pitch Formation View */}
             <TabsContent value="lineups">
-              <div className="grid md:grid-cols-2 gap-4">
-                {renderCompactPlayersList(teamAPlayers, teamA.name, teamA.logo_url)}
-                {renderCompactPlayersList(teamBPlayers, teamB.name, teamB.logo_url)}
-              </div>
+              <FootballPitchLineup
+                teamA={teamA}
+                teamB={teamB}
+                teamAPlayers={teamAPlayers}
+                teamBPlayers={teamBPlayers}
+                teamASubs={teamASubs}
+                teamBSubs={teamBSubs}
+              />
             </TabsContent>
 
             {/* Goals Tab */}
