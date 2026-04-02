@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, Goal, ArrowRightLeft, Shirt, User } from 'lucide-react';
+import FootballPitchLineup from '@/components/FootballPitchLineup';
 import { motion } from 'framer-motion';
 import { Team, GoalEvent } from '@/hooks/useSportsData';
 import FootballTimer from '@/components/FootballTimer';
