@@ -365,6 +365,8 @@ const FootballMatchDetails = ({ matchId, teamA, teamB, goalsTeamA, goalsTeamB, s
                 teamBPlayers={teamBPlayers}
                 teamASubs={teamASubs}
                 teamBSubs={teamBSubs}
+                goalsTeamA={goalsTeamA}
+                goalsTeamB={goalsTeamB}
               />
             </TabsContent>
 
