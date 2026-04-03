@@ -49,114 +49,211 @@ interface FootballPitchLineupProps {
   goalsTeamB: GoalEvent[];
 }
 
-/* ─── Parse position into row & sideOrder ─── */
+/* ─── Normalize: lowercase, strip accents/diacritics, remove punctuation ─── */
+const normalize = (s: string) =>
+  s.toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .trim();
+
+/* ─── Robust name match (handles accents, short names, partial matches) ─── */
+const nameMatch = (a: string, b: string): boolean => {
+  const na = normalize(a);
+  const nb = normalize(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  if (na.includes(nb) || nb.includes(na)) return true;
+  // Token match (min 3 chars per token)
+  const ta = na.split(/\s+/).filter(t => t.length >= 3);
+  const tb = nb.split(/\s+/).filter(t => t.length >= 3);
+  if (ta.some(t => tb.some(u => t === u || t.includes(u) || u.includes(t)))) return true;
+  // Last-name match
+  const lastA = na.split(/\s+/).pop() ?? '';
+  const lastB = nb.split(/\s+/).pop() ?? '';
+  if (lastA.length >= 3 && lastB.length >= 3 &&
+      (lastA === lastB || lastA.includes(lastB) || lastB.includes(lastA))) return true;
+  return false;
+};
+
+/* ─── Parse any football position string → { row, sideOrder } ─────────────
+ *  row:       0=GK  1=DEF  2=DM  3=MID  4=AM/Wing  5=FW
+ *  sideOrder: 0=far-left … 100=far-right
+ *  Covers codes from Opta, StatsBomb, WhoScored, SofaScore, FBref,
+ *  Transfermarkt, FIFA, eFootball/PES, Football Manager, API-Football,
+ *  Sportmonks, and major European leagues.
+ * ──────────────────────────────────────────────────────────────────────── */
 const parsePosition = (role: string | null): { row: number; sideOrder: number } => {
   const raw = (role ?? '').trim();
   if (!raw) return { row: 3, sideOrder: 50 };
 
-  const parts = raw.toUpperCase().split(/[-\s]+/).filter(Boolean);
-  const base = parts[0];
-  const suffix = parts[1] ?? '';
-  const suffix2 = parts[2] ?? '';
+  const clean = raw.toUpperCase().replace(/[-./\\]/g, ' ').trim();
+  const parts  = clean.split(/\s+/).filter(Boolean);
+  const p0 = parts[0] ?? '';
+  const p1 = parts[1] ?? '';
 
   let row = 3;
   let sideOrder = 50;
 
-  switch (base) {
-    case 'G': case 'GK': case 'GOALKEEPER':
+  const side = (token: string, def = 50) =>
+    token === 'L' || token === 'LEFT'  ? 15
+    : token === 'R' || token === 'RIGHT' ? 85
+    : def;
+
+  switch (p0) {
+    /* ══ GOALKEEPER ══ */
+    case 'G': case 'GK': case 'POR': case 'GL': case 'PT': case 'TW':
+    case 'GOALKEEPER': case 'PORTERO': case 'GOLEIRO': case 'GARDIEN':
+    case 'TORWART': case 'PORTIERE': case 'KEEPER': case 'PORTERO':
       row = 0; sideOrder = 50; break;
+
+    /* ══ FULLBACKS ══ */
     case 'LB': case 'LWB':
       row = 1; sideOrder = 5; break;
     case 'RB': case 'RWB':
       row = 1; sideOrder = 95; break;
-    case 'CB': case 'CD': case 'SW':
-      row = 1;
-      sideOrder = suffix === 'L' ? 25 : suffix === 'R' ? 75 : 50;
-      break;
-    case 'LEFT':
-      if (suffix === 'BACK') { row = 1; sideOrder = 5; }
-      else if (suffix === 'MIDFIELDER') { row = 3; sideOrder = 5; }
-      else if (suffix === 'WINGER' || suffix === 'WING') { row = 4; sideOrder = 5; }
-      else { row = 3; sideOrder = 5; }
-      break;
-    case 'RIGHT':
-      if (suffix === 'BACK') { row = 1; sideOrder = 95; }
-      else if (suffix === 'MIDFIELDER') { row = 3; sideOrder = 95; }
-      else if (suffix === 'WINGER' || suffix === 'WING') { row = 4; sideOrder = 95; }
-      else { row = 3; sideOrder = 95; }
-      break;
-    case 'CENTER': case 'CENTRE':
-      if (suffix === 'BACK') { row = 1; sideOrder = 50; }
-      else if (suffix === 'MIDFIELDER' || suffix === 'MID') { row = 3; sideOrder = 50; }
-      else if (suffix === 'FORWARD') { row = 5; sideOrder = 50; }
-      else { row = 1; sideOrder = 50; }
-      break;
-    case 'DM': case 'CDM': case 'DMF':
-      row = 2;
-      sideOrder = suffix === 'L' ? 25 : suffix === 'R' ? 75 : 50;
-      break;
-    case 'DEFENSIVE':
-      row = 2; sideOrder = 50; break;
-    case 'CM': case 'CMF':
-      row = 3;
-      sideOrder = suffix === 'L' ? 30 : suffix === 'R' ? 70 : 50;
-      break;
-    case 'LM':
-      row = 3; sideOrder = 5; break;
-    case 'RM':
-      row = 3; sideOrder = 95; break;
-    case 'CENTRAL': case 'MIDFIELDER':
-      row = 3; sideOrder = 50; break;
-    case 'AM': case 'CAM': case 'AMF':
-      row = 4;
-      sideOrder = suffix === 'L' ? 5 : suffix === 'R' ? 95 : 50;
-      break;
-    case 'LW':
+
+    /* ══ CENTRE-BACKS ══ */
+    case 'CB': case 'CD': case 'DC': case 'BK':
+    case 'SW': case 'LIB': case 'LIBERO': case 'STOPPER':
+    case 'CENTREBACK': case 'CENTERBACK':
+      row = 1; sideOrder = side(p1, 50); break;
+
+    /* ══ WING-BACKS (ambiguous - treat as fullback row) ══ */
+    case 'WB':
+      row = 1; sideOrder = side(p1, 50); break;
+
+    /* ══ DEFENSIVE MIDFIELDERS ══ */
+    case 'DM': case 'CDM': case 'DMF': case 'MDC':
+    case 'VOL': case 'ANCHOR': case 'PIVOT': case 'HOLDING':
+    case 'DESTROYER': case 'REGISTA': case 'SEGUNDO':
+      row = 2; sideOrder = side(p1, 50); break;
+
+    /* ══ CENTRAL MIDFIELDERS ══ */
+    case 'CM': case 'CMF': case 'MC': case 'MF': case 'MED':
+    case 'MEZZALA': case 'MEZZ': case 'BOX': case 'BTB':
+      row = 3; sideOrder = side(p1, 50); break;
+    case 'LM': case 'ML':
+      row = 3; sideOrder = 10; break;
+    case 'RM': case 'MR':
+      row = 3; sideOrder = 90; break;
+
+    /* ══ ATTACKING MIDFIELDERS / NO.10 ══ */
+    case 'AM': case 'CAM': case 'AMF': case 'MAC': case 'OMA':
+    case 'TQ': case 'TREQUARTISTA': case 'ENGANCHE':
+    case 'MEDIAPUNTA': case 'FANTASISTA': case 'PLAYMAKER':
+      row = 4; sideOrder = side(p1, 50); break;
+
+    /* ══ WINGERS ══ */
+    case 'LW': case 'OL': case 'WL': case 'AML': case 'LA':
       row = 4; sideOrder = 5; break;
-    case 'RW':
+    case 'RW': case 'OR': case 'WR': case 'AMR': case 'RA':
       row = 4; sideOrder = 95; break;
+
+    /* Inside forwards / inverted wingers */
+    case 'IL': case 'IF':
+      row = 4; sideOrder = side(p1, 15); break;
+    case 'IR':
+      row = 4; sideOrder = 85; break;
+    case 'IW':
+      row = 4; sideOrder = side(p1, 50); break;
+
+    /* ══ FORWARDS / STRIKERS ══ */
+    case 'ST': case 'CF': case 'CTR': case 'ATT':
+    case 'F': case 'FW': case 'FC':
+    case 'STRIKER': case 'FORWARD': case 'POACHER':
+    case 'CENTREFORWARD': case 'CENTERFORWARD':
+    case 'TARGETMAN': case 'FALSE9':
+      row = 5; sideOrder = side(p1, 50); break;
+
+    case 'LF': case 'FL':
+      row = 5; sideOrder = 15; break;
+    case 'RF': case 'FR':
+      row = 5; sideOrder = 85; break;
+
+    /* Second striker / shadow striker */
+    case 'SS': case 'S9': case 'CF2': case 'SHADOW':
+      row = 4; sideOrder = 50; break;
+
+    /* ══ MULTI-WORD POSITIONS ══ */
+    case 'LEFT':
+      if (p1 === 'BACK' || p1 === 'FULLBACK' || p1 === 'FULL' || p1 === 'FB')
+                              { row = 1; sideOrder = 5; }
+      else if (p1 === 'WING' || p1 === 'WINGER')
+                              { row = 4; sideOrder = 5; }
+      else if (p1 === 'FORWARD')
+                              { row = 5; sideOrder = 15; }
+      else if (p1 === 'MIDFIELDER' || p1 === 'MID' || p1 === 'MIDFIELD')
+                              { row = 3; sideOrder = 10; }
+      else                    { row = 3; sideOrder = 10; }
+      break;
+
+    case 'RIGHT':
+      if (p1 === 'BACK' || p1 === 'FULLBACK' || p1 === 'FULL' || p1 === 'FB')
+                              { row = 1; sideOrder = 95; }
+      else if (p1 === 'WING' || p1 === 'WINGER')
+                              { row = 4; sideOrder = 95; }
+      else if (p1 === 'FORWARD')
+                              { row = 5; sideOrder = 85; }
+      else if (p1 === 'MIDFIELDER' || p1 === 'MID' || p1 === 'MIDFIELD')
+                              { row = 3; sideOrder = 90; }
+      else                    { row = 3; sideOrder = 90; }
+      break;
+
+    case 'CENTER': case 'CENTRE': case 'CENTRAL':
+      if (p1 === 'BACK' || p1 === 'DEFENDER' || p1 === 'CB')
+                              { row = 1; sideOrder = 50; }
+      else if (p1 === 'MIDFIELDER' || p1 === 'MID' || p1 === 'MIDFIELD')
+                              { row = 3; sideOrder = 50; }
+      else if (p1 === 'FORWARD' || p1 === 'STRIKER')
+                              { row = 5; sideOrder = 50; }
+      else                    { row = 1; sideOrder = 50; }
+      break;
+
+    case 'DEFENSIVE':
+      if (p1 === 'MIDFIELDER' || p1 === 'MID' || p1 === 'MIDFIELD' || p1 === '')
+                              { row = 2; sideOrder = 50; }
+      else                    { row = 1; sideOrder = 50; }
+      break;
+
     case 'ATTACKING':
-      row = 4;
-      sideOrder = suffix === 'L' || suffix === 'LEFT' ? 5 : suffix === 'R' || suffix === 'RIGHT' ? 95 : 50;
-      break;
+      row = 4; sideOrder = side(p1, 50); break;
+
     case 'WINGER': case 'WING':
-      row = 4;
-      sideOrder = suffix === 'L' || suffix === 'LEFT' ? 5 : suffix === 'R' || suffix === 'RIGHT' ? 95 : 50;
-      break;
-    case 'F': case 'ST': case 'CF': case 'SS': case 'STRIKER': case 'FORWARD':
-      row = 5;
-      sideOrder = suffix === 'L' ? 25 : suffix === 'R' ? 75 : 50;
-      break;
+      row = 4; sideOrder = side(p1, 50); break;
+
+    case 'MIDFIELDER': case 'MID': case 'MIDFIELD':
+      row = 3; sideOrder = side(p1, 50); break;
+
+    case 'DEFENDER': case 'DEF': case 'DEFENCE': case 'DEFENSE':
+      row = 1; sideOrder = side(p1, 50); break;
+
+    /* ══ FALLBACK: keyword scan on full string ══ */
     default: {
-      const up = raw.toUpperCase();
-      if (up.includes('GOAL') || up.includes('KEEPER')) { row = 0; sideOrder = 50; }
-      else if (up.includes('BACK') || up.includes('DEFENDER')) {
-        row = 1;
-        sideOrder = up.includes('LEFT') ? 5 : up.includes('RIGHT') ? 95 : 50;
-      } else if (up.includes('DEFENSIVE') || up.includes('HOLDING')) { row = 2; sideOrder = 50; }
-      else if (up.includes('ATTACK')) {
-        row = 4;
-        sideOrder = up.includes('LEFT') ? 5 : up.includes('RIGHT') ? 95 : 50;
-      } else if (up.includes('WING')) {
-        row = 4;
-        sideOrder = up.includes('LEFT') ? 5 : up.includes('RIGHT') ? 95 : 50;
-      } else if (up.includes('MID')) {
-        row = 3;
-        sideOrder = up.includes('LEFT') ? 5 : up.includes('RIGHT') ? 95 : 50;
-      } else if (up.includes('STRIKER') || up.includes('FORWARD')) { row = 5; sideOrder = 50; }
+      const up = clean;
+      if (up.includes('GOAL') || up.includes('KEEPER') || up.includes(' GK'))
+        { row = 0; sideOrder = 50; }
+      else if (up.includes('SWEEP') || up.includes('LIBERO'))
+        { row = 1; sideOrder = 50; }
+      else if (up.includes('BACK') || up.includes('DEFENDER') || up.includes('FULLBACK'))
+        { row = 1; sideOrder = up.includes('LEFT') ? 5 : up.includes('RIGHT') ? 95 : 50; }
+      else if (up.includes('DEFENSIVE') || up.includes('HOLDING') || up.includes('ANCHOR') || up.includes('PIVOT'))
+        { row = 2; sideOrder = 50; }
+      else if (up.includes('FORWARD') || up.includes('STRIKER') || up.includes('ATTACKER'))
+        { row = 5; sideOrder = up.includes('LEFT') ? 15 : up.includes('RIGHT') ? 85 : 50; }
+      else if (up.includes('ATTACK') && up.includes('MID'))
+        { row = 4; sideOrder = up.includes('LEFT') ? 5 : up.includes('RIGHT') ? 95 : 50; }
+      else if (up.includes('ATTACK'))
+        { row = 4; sideOrder = up.includes('LEFT') ? 5 : up.includes('RIGHT') ? 95 : 50; }
+      else if (up.includes('WING'))
+        { row = 4; sideOrder = up.includes('LEFT') ? 5 : up.includes('RIGHT') ? 95 : 50; }
+      else if (up.includes('MID'))
+        { row = 3; sideOrder = up.includes('LEFT') ? 10 : up.includes('RIGHT') ? 90 : 50; }
       break;
     }
   }
 
   return { row, sideOrder };
-};
-
-/* ─── Fuzzy name match ─── */
-const nameParts = (n: string) => n.toLowerCase().split(/\s+/);
-const nameMatch = (a: string, b: string) => {
-  const ap = nameParts(a);
-  const bp = nameParts(b);
-  return ap.some(pa => bp.some(pb => pa.length > 2 && pb.includes(pa)));
 };
 
 /* ─── Starting XI only ─── */
