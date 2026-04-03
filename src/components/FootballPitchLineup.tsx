@@ -159,34 +159,9 @@ const nameMatch = (a: string, b: string) => {
   return ap.some(pa => bp.some(pb => pa.length > 2 && pb.includes(pa)));
 };
 
-/* ─── Build current pitch players after substitutions ─── */
-const buildCurrentPitch = (
-  allPlayers: Player[],
-  subs: Substitution[]
-): Player[] => {
-  // Start with XI starters
-  let pitchPlayers = allPlayers.filter(p => !p.is_bench);
-
-  subs.forEach(sub => {
-    // Remove subbed-out player
-    pitchPlayers = pitchPlayers.filter(p => !nameMatch(p.player_name, sub.player_out));
-
-    // Find the incoming player from bench
-    const incoming = allPlayers.find(p => p.is_bench && nameMatch(p.player_name, sub.player_in));
-    if (incoming) {
-      // Inherit the position of the player who went off (if incoming has no role)
-      const outPlayer = allPlayers.find(p => nameMatch(p.player_name, sub.player_out));
-      const effectiveRole = incoming.player_role ?? outPlayer?.player_role ?? null;
-      pitchPlayers.push({
-        ...incoming,
-        is_bench: false,
-        player_role: effectiveRole,
-      });
-    }
-  });
-
-  return pitchPlayers;
-};
+/* ─── Starting XI only ─── */
+const buildCurrentPitch = (allPlayers: Player[]): Player[] =>
+  allPlayers.filter(p => !p.is_bench);
 
 /* ─── Group players by pitch row ─── */
 const groupPlayersByRow = (players: Player[]) => {
@@ -214,16 +189,15 @@ interface JerseyProps {
   primaryColor: string;
   secondaryColor: string;
   number: number | null;
-  isSub?: boolean;
 }
 
-const JerseySVG = ({ primaryColor, secondaryColor, number, isSub = false }: JerseyProps) => (
+const JerseySVG = ({ primaryColor, secondaryColor, number }: JerseyProps) => (
   <svg
     viewBox="0 0 52 56"
     width="36"
     height="39"
     xmlns="http://www.w3.org/2000/svg"
-    style={{ filter: isSub ? 'drop-shadow(0 0 4px rgba(74,222,128,0.8))' : 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' }}
+    style={{ filter: 'drop-shadow(0 2px 3px rgba(0,0,0,0.5))' }}
   >
     {/* Left sleeve */}
     <path
@@ -276,17 +250,6 @@ const JerseySVG = ({ primaryColor, secondaryColor, number, isSub = false }: Jers
         {number}
       </text>
     )}
-    {/* Sub indicator glow ring */}
-    {isSub && (
-      <path
-        d="M16,4 C18,1 22,0 26,0 C30,0 34,1 36,4 L46,8 L36,16 L36,54 L16,54 L16,16 L6,8 Z"
-        fill="none"
-        stroke="#4ade80"
-        strokeWidth="2"
-        opacity="0.7"
-        strokeLinejoin="round"
-      />
-    )}
   </svg>
 );
 
@@ -297,12 +260,11 @@ interface PlayerChipProps {
   subs: Substitution[];
   primaryColor: string;
   secondaryColor: string;
-  isSub?: boolean;
 }
 
-const PlayerChip = ({ player, goals, subs, primaryColor, secondaryColor, isSub = false }: PlayerChipProps) => {
+const PlayerChip = ({ player, goals, subs, primaryColor, secondaryColor }: PlayerChipProps) => {
   const scored = goals.filter(g => nameMatch(g.player, player.player_name));
-  const subIn = subs.find(s => nameMatch(s.player_in, player.player_name));
+  const subOut = subs.find(s => nameMatch(s.player_out, player.player_name));
   const lastName = player.player_name.split(' ').pop() ?? player.player_name;
 
   return (
@@ -312,7 +274,6 @@ const PlayerChip = ({ player, goals, subs, primaryColor, secondaryColor, isSub =
           primaryColor={primaryColor}
           secondaryColor={secondaryColor}
           number={player.batting_order}
-          isSub={isSub}
         />
 
         {/* Goal badge */}
@@ -325,14 +286,14 @@ const PlayerChip = ({ player, goals, subs, primaryColor, secondaryColor, isSub =
           </span>
         )}
 
-        {/* Sub-in minute badge */}
-        {subIn && (
+        {/* Sub-out badge */}
+        {subOut && (
           <span
-            className="absolute -bottom-1 -right-1.5 bg-green-500 text-white rounded-full px-1 flex items-center justify-center text-[7px] font-bold shadow z-10 leading-tight"
+            className="absolute -bottom-1 -right-1.5 bg-red-600 text-white rounded-full px-1 flex items-center justify-center text-[7px] font-bold shadow z-10 leading-tight"
             style={{ minWidth: 18, height: 14 }}
-            title={`Subbed on ${subIn.minute}'`}
+            title={`Subbed off ${subOut.minute}'`}
           >
-            ↑{subIn.minute}′
+            ⬇{subOut.minute}′
           </span>
         )}
 
@@ -354,7 +315,7 @@ const PlayerChip = ({ player, goals, subs, primaryColor, secondaryColor, isSub =
       {/* Player last name */}
       <span
         className="text-[9px] font-bold text-center leading-tight drop-shadow truncate"
-        style={{ maxWidth: 58, color: isSub ? '#4ade80' : 'white' }}
+        style={{ maxWidth: 58, color: 'white' }}
       >
         {lastName}
       </span>
@@ -376,10 +337,9 @@ interface PitchRowProps {
   subs: Substitution[];
   primaryColor: string;
   secondaryColor: string;
-  subbedOnNames: string[];
 }
 
-const PitchRow = ({ row, goals, subs, primaryColor, secondaryColor, subbedOnNames }: PitchRowProps) => (
+const PitchRow = ({ row, goals, subs, primaryColor, secondaryColor }: PitchRowProps) => (
   <div className="flex justify-around items-center w-full py-1 px-2">
     {row.map(({ player }) => (
       <PlayerChip
@@ -389,7 +349,6 @@ const PitchRow = ({ row, goals, subs, primaryColor, secondaryColor, subbedOnName
         subs={subs}
         primaryColor={primaryColor}
         secondaryColor={secondaryColor}
-        isSub={subbedOnNames.some(n => nameMatch(n, player.player_name))}
       />
     ))}
   </div>
@@ -414,8 +373,8 @@ const FootballPitchLineup = ({
   };
 
   // Build current pitch (starters ± subs)
-  const pitchA = useMemo(() => buildCurrentPitch(teamAPlayers, teamASubs), [teamAPlayers, teamASubs]);
-  const pitchB = useMemo(() => buildCurrentPitch(teamBPlayers, teamBSubs), [teamBPlayers, teamBSubs]);
+  const pitchA = useMemo(() => buildCurrentPitch(teamAPlayers), [teamAPlayers]);
+  const pitchB = useMemo(() => buildCurrentPitch(teamBPlayers), [teamBPlayers]);
 
   const groupsA = useMemo(() => groupPlayersByRow(pitchA), [pitchA]);
   const groupsB = useMemo(() => groupPlayersByRow(pitchB), [pitchB]);
@@ -426,8 +385,8 @@ const FootballPitchLineup = ({
   const rowsA = ([0, 1, 2, 3, 4, 5] as const).filter(r => (groupsA[r] ?? []).length > 0);
   const rowsB = ([0, 1, 2, 3, 4, 5] as const).filter(r => (groupsB[r] ?? []).length > 0);
 
-  const subbedOnA = teamASubs.map(s => s.player_in);
-  const subbedOnB = teamBSubs.map(s => s.player_in);
+
+
 
   return (
     <div
@@ -498,7 +457,6 @@ const FootballPitchLineup = ({
               subs={teamBSubs}
               primaryColor={colorB.primary}
               secondaryColor={colorB.secondary}
-              subbedOnNames={subbedOnB}
             />
           ))}
         </div>
@@ -520,7 +478,6 @@ const FootballPitchLineup = ({
               subs={teamASubs}
               primaryColor={colorA.primary}
               secondaryColor={colorA.secondary}
-              subbedOnNames={subbedOnA}
             />
           ))}
         </div>
