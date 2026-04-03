@@ -1,7 +1,4 @@
-import { motion } from 'framer-motion';
-import { Badge } from '@/components/ui/badge';
-import { ArrowRightLeft, CircleDot } from 'lucide-react';
-import { Team, GoalEvent } from '@/hooks/useSportsData';
+import { useMemo } from 'react';
 
 interface Player {
   id: string;
@@ -12,9 +9,8 @@ interface Player {
   is_captain: boolean;
   is_vice_captain: boolean;
   batting_order: number | null;
-  is_bench?: boolean;
   player_image?: string | null;
-  change_status?: string | null;
+  is_bench?: boolean;
 }
 
 interface Substitution {
@@ -26,453 +22,448 @@ interface Substitution {
   minute: string;
 }
 
+interface GoalEvent {
+  player: string;
+  minute: string;
+  type?: string;
+  assist?: string;
+}
+
+interface Team {
+  id: string;
+  name: string;
+  short_name?: string;
+  logo_url?: string | null;
+}
+
 interface FootballPitchLineupProps {
   teamA: Team;
   teamB: Team;
   teamAPlayers: Player[];
   teamBPlayers: Player[];
-  teamASubs?: Substitution[];
-  teamBSubs?: Substitution[];
-  goalsTeamA?: GoalEvent[];
-  goalsTeamB?: GoalEvent[];
+  teamASubs: Substitution[];
+  teamBSubs: Substitution[];
+  goalsTeamA: GoalEvent[];
+  goalsTeamB: GoalEvent[];
 }
 
-type BaseLine = 'gk' | 'def' | 'pivot' | 'wide' | 'band' | 'front';
-type DisplayLine = 'gk' | 'def' | 'pivot' | 'band' | 'front';
+/**
+ * Parse a position string (short code OR full name) into:
+ *   row      – 0=GK, 1=DEF, 2=DM, 3=MID, 4=AM/Wing, 5=FW
+ *   sideOrder – 0=far-left … 100=far-right (determines horizontal order)
+ *
+ * Handles: G, GK, LB, RB, CB, CD, CD-L, CD-R, DM, CDM,
+ *          CM, LM, RM, AM, AM-L, AM-R, CAM, LW, RW,
+ *          F, ST, CF, SS  AND  full English names like
+ *          "Goalkeeper", "Right Back", "Attacking Midfielder", etc.
+ */
+const parsePosition = (role: string | null): { row: number; sideOrder: number } => {
+  const raw = (role ?? '').trim();
+  if (!raw) return { row: 3, sideOrder: 50 };
 
-const normalizeRole = (role: string | null) => (role || '').toLowerCase().replace(/[^a-z]/g, '');
+  // Split on dashes / spaces, uppercase, drop empty fragments
+  const parts = raw.toUpperCase().split(/[-\s]+/).filter(Boolean);
+  const base = parts[0];
+  const suffix = parts[1] ?? '';            // e.g. "L", "R", "BACK", "WINGER" …
+  const suffix2 = parts[2] ?? '';
 
-const matchesRole = (value: string, token: string) => {
-  if (!value) return false;
-  return token.length <= 3 ? value === token : value.includes(token);
-};
+  let row = 3;       // default: central midfield
+  let sideOrder = 50; // default: centre
 
-const isAnyRole = (value: string, tokens: string[]) => tokens.some((token) => matchesRole(value, token));
+  switch (base) {
+    /* ── Goalkeeper ── */
+    case 'G':
+    case 'GK':
+    case 'GOALKEEPER':
+      row = 0; sideOrder = 50; break;
 
-const classifyBaseLine = (role: string | null): BaseLine => {
-  const value = normalizeRole(role);
+    /* ── Full-backs ── */
+    case 'LB':
+    case 'LWB':
+      row = 1; sideOrder = 5; break;
+    case 'RB':
+    case 'RWB':
+      row = 1; sideOrder = 95; break;
 
-  if (isAnyRole(value, ['g', 'gk', 'goalkeeper', 'goal'])) return 'gk';
-  if (isAnyRole(value, ['lb', 'rb', 'cb', 'cd', 'lwb', 'rwb', 'leftback', 'rightback', 'centerback', 'centreback', 'defender'])) return 'def';
-  if (isAnyRole(value, ['dm', 'cdm', 'cm', 'defensivemidfielder', 'centralmidfielder'])) return 'pivot';
-  if (isAnyRole(value, ['lm', 'rm', 'leftmidfielder', 'rightmidfielder', 'lw', 'rw', 'leftwinger', 'rightwinger', 'winger'])) return 'wide';
-  if (isAnyRole(value, ['am', 'cam', 'attackingmidfielder'])) return 'band';
-  if (isAnyRole(value, ['f', 'fw', 'cf', 'st', 'ss', 'forward', 'striker', 'centerforward', 'centreforward'])) return 'front';
+    /* ── Centre-backs / Defenders ── */
+    case 'CB':
+    case 'CD':
+    case 'SW':        // sweeper
+      row = 1;
+      sideOrder = suffix === 'L' ? 25 : suffix === 'R' ? 75 : 50;
+      break;
 
-  return 'pivot';
-};
+    /* ── "Left …" positions ── */
+    case 'LEFT':
+      if (suffix === 'BACK')                        { row = 1; sideOrder = 5; }
+      else if (suffix === 'MIDFIELDER')              { row = 3; sideOrder = 5; }
+      else if (suffix === 'WINGER' || suffix === 'WING') { row = 4; sideOrder = 5; }
+      else if (suffix === 'BACK' && suffix2 === 'BACK') { row = 1; sideOrder = 5; }
+      else { row = 3; sideOrder = 5; }
+      break;
 
-const getShortPos = (role: string | null) => {
-  if (!role) return '';
-  const normalized = role.replace(/-$/, '').trim().toUpperCase();
-  return normalized.length > 3 ? normalized.slice(0, 3) : normalized;
-};
+    /* ── "Right …" positions ── */
+    case 'RIGHT':
+      if (suffix === 'BACK')                        { row = 1; sideOrder = 95; }
+      else if (suffix === 'MIDFIELDER')              { row = 3; sideOrder = 95; }
+      else if (suffix === 'WINGER' || suffix === 'WING') { row = 4; sideOrder = 95; }
+      else { row = 3; sideOrder = 95; }
+      break;
 
-const getLineOrder = (role: string | null, line: DisplayLine) => {
-  const value = normalizeRole(role);
+    /* ── "Center/Centre …" positions ── */
+    case 'CENTER':
+    case 'CENTRE':
+      if (suffix === 'BACK')                        { row = 1; sideOrder = 50; }
+      else if (suffix === 'MIDFIELDER' || suffix === 'MID') { row = 3; sideOrder = 50; }
+      else if (suffix === 'FORWARD')                { row = 5; sideOrder = 50; }
+      else { row = 1; sideOrder = 50; } // assume CB if unqualified
+      break;
 
-  if (line === 'def') {
-    if (isAnyRole(value, ['lb', 'lwb', 'leftback'])) return 0;
-    if (isAnyRole(value, ['cb', 'cd', 'centerback', 'centreback'])) return 1;
-    if (isAnyRole(value, ['rb', 'rwb', 'rightback'])) return 3;
-    return 2;
+    /* ── Defensive midfielders ── */
+    case 'DM':
+    case 'CDM':
+    case 'DMF':
+      row = 2;
+      sideOrder = suffix === 'L' ? 25 : suffix === 'R' ? 75 : 50;
+      break;
+
+    case 'DEFENSIVE':
+      row = 2; sideOrder = 50; break;
+
+    /* ── Central / box-to-box midfielders ── */
+    case 'CM':
+    case 'CMF':
+      row = 3;
+      sideOrder = suffix === 'L' ? 30 : suffix === 'R' ? 70 : 50;
+      break;
+
+    case 'LM':
+      row = 3; sideOrder = 5; break;
+    case 'RM':
+      row = 3; sideOrder = 95; break;
+
+    case 'CENTRAL':
+    case 'MIDFIELDER':
+      row = 3; sideOrder = 50; break;
+
+    /* ── Attacking midfielders / Wingers ── */
+    case 'AM':
+    case 'CAM':
+    case 'AMF':
+      row = 4;
+      sideOrder = suffix === 'L' ? 5 : suffix === 'R' ? 95 : 50;
+      break;
+
+    case 'LW':
+      row = 4; sideOrder = 5; break;
+    case 'RW':
+      row = 4; sideOrder = 95; break;
+
+    case 'ATTACKING':
+      row = 4;
+      sideOrder = suffix === 'L' || suffix === 'LEFT' ? 5
+        : suffix === 'R' || suffix === 'RIGHT' ? 95
+        : 50;
+      break;
+
+    case 'WINGER':
+    case 'WING':
+      row = 4;
+      sideOrder = suffix === 'L' || suffix === 'LEFT' ? 5
+        : suffix === 'R' || suffix === 'RIGHT' ? 95
+        : 50;
+      break;
+
+    /* ── Forwards / Strikers ── */
+    case 'F':
+    case 'ST':
+    case 'CF':
+    case 'SS':
+    case 'STRIKER':
+    case 'FORWARD':
+      row = 5;
+      sideOrder = suffix === 'L' ? 25 : suffix === 'R' ? 75 : 50;
+      break;
+
+    /* ── Fallback: scan the whole original string for keywords ── */
+    default: {
+      const up = raw.toUpperCase();
+      if (up.includes('GOAL') || up.includes('KEEPER')) {
+        row = 0; sideOrder = 50;
+      } else if (up.includes('BACK') || up.includes('DEFENDER') || up.includes(' CB') || up.includes(' CD')) {
+        row = 1;
+        sideOrder = up.includes('LEFT') ? 5 : up.includes('RIGHT') ? 95 : 50;
+      } else if (up.includes('DEFENSIVE') || up.includes('HOLDING')) {
+        row = 2; sideOrder = 50;
+      } else if (up.includes('ATTACK')) {
+        row = 4;
+        sideOrder = up.includes('LEFT') ? 5 : up.includes('RIGHT') ? 95 : 50;
+      } else if (up.includes('WING')) {
+        row = 4;
+        sideOrder = up.includes('LEFT') ? 5 : up.includes('RIGHT') ? 95 : 50;
+      } else if (up.includes('MID')) {
+        row = 3;
+        sideOrder = up.includes('LEFT') ? 5 : up.includes('RIGHT') ? 95 : 50;
+      } else if (up.includes('STRIKER') || up.includes('FORWARD')) {
+        row = 5; sideOrder = 50;
+      }
+      break;
+    }
   }
 
-  if (line === 'pivot') {
-    if (isAnyRole(value, ['lm', 'leftmidfielder'])) return 0;
-    if (isAnyRole(value, ['dm', 'cdm', 'defensivemidfielder'])) return 1;
-    if (isAnyRole(value, ['cm', 'centralmidfielder'])) return 2;
-    if (isAnyRole(value, ['rm', 'rightmidfielder'])) return 3;
-    return 2;
-  }
-
-  if (line === 'band') {
-    if (isAnyRole(value, ['lw', 'leftwinger'])) return 0;
-    if (isAnyRole(value, ['am', 'cam', 'attackingmidfielder'])) return 1;
-    if (isAnyRole(value, ['rw', 'rightwinger'])) return 2;
-    return 1;
-  }
-
-  if (line === 'front') {
-    if (isAnyRole(value, ['lw', 'leftwinger'])) return 0;
-    if (isAnyRole(value, ['ss'])) return 1;
-    if (isAnyRole(value, ['f', 'fw', 'cf', 'st', 'forward', 'striker', 'centerforward', 'centreforward'])) return 2;
-    if (isAnyRole(value, ['rw', 'rightwinger'])) return 3;
-    return 2;
-  }
-
-  return 0;
+  return { row, sideOrder };
 };
 
-const sortLinePlayers = (players: Player[], line: DisplayLine) =>
-  [...players].sort((a, b) => {
-    const orderDiff = getLineOrder(a.player_role, line) - getLineOrder(b.player_role, line);
-    if (orderDiff !== 0) return orderDiff;
-    return (a.batting_order ?? 99) - (b.batting_order ?? 99);
+/* ─── Group starters by row, sorted left-to-right ─── */
+const groupPlayersByRow = (players: Player[]) => {
+  const groups: Record<number, { player: Player; sideOrder: number }[]> = {};
+
+  players.forEach(p => {
+    if (p.is_bench) return;
+    const { row, sideOrder } = parsePosition(p.player_role);
+    if (!groups[row]) groups[row] = [];
+    groups[row].push({ player: p, sideOrder });
   });
 
-const resolveDisplayLines = (players: Player[]) => {
-  const starters = players.filter((player) => !player.is_bench);
-
-  const buckets: Record<BaseLine, Player[]> = {
-    gk: [],
-    def: [],
-    pivot: [],
-    wide: [],
-    band: [],
-    front: [],
-  };
-
-  starters.forEach((player) => {
-    buckets[classifyBaseLine(player.player_role)].push(player);
-  });
-
-  if (buckets.front.length >= 2) {
-    buckets.pivot.push(...buckets.wide);
-  } else if (buckets.front.length === 1 && buckets.band.length === 0) {
-    buckets.front.push(...buckets.wide);
-  } else {
-    buckets.band.push(...buckets.wide);
-  }
-
-  const displayLines: Record<DisplayLine, Player[]> = {
-    gk: sortLinePlayers(buckets.gk, 'gk'),
-    def: sortLinePlayers(buckets.def, 'def'),
-    pivot: sortLinePlayers(buckets.pivot, 'pivot'),
-    band: sortLinePlayers(buckets.band, 'band'),
-    front: sortLinePlayers(buckets.front, 'front'),
-  };
-
-  if (displayLines.gk.length === 0 && starters.length > 0) {
-    const fallbackGoalkeeper = [...starters].sort((a, b) => (a.batting_order ?? 99) - (b.batting_order ?? 99))[0];
-    displayLines.gk = [fallbackGoalkeeper];
-    displayLines.pivot = displayLines.pivot.filter((player) => player.id !== fallbackGoalkeeper.id);
-    displayLines.def = displayLines.def.filter((player) => player.id !== fallbackGoalkeeper.id);
-    displayLines.band = displayLines.band.filter((player) => player.id !== fallbackGoalkeeper.id);
-    displayLines.front = displayLines.front.filter((player) => player.id !== fallbackGoalkeeper.id);
-  }
-
-  return displayLines;
+  // Sort each row left → right
+  Object.values(groups).forEach(g => g.sort((a, b) => a.sideOrder - b.sideOrder));
+  return groups;
 };
 
-const detectFormation = (players: Player[]) => {
-  const lines = resolveDisplayLines(players);
-  return [lines.def.length, lines.pivot.length, lines.band.length, lines.front.length]
-    .filter((count) => count > 0)
+/* ─── Build "4-2-3-1" formation string ─── */
+const getFormation = (players: Player[]) => {
+  const groups = groupPlayersByRow(players);
+  return [1, 2, 3, 4, 5]
+    .map(r => (groups[r] ?? []).length)
+    .filter(n => n > 0)
     .join('-');
 };
 
-const getPlayerGoals = (playerName: string, goals: GoalEvent[]) => {
-  const player = playerName.toLowerCase();
-  const lastName = player.split(' ').pop();
-
-  return goals.filter((goal) => {
-    const goalPlayer = goal.player.toLowerCase();
-    const goalLastName = goalPlayer.split(' ').pop();
-    return goalPlayer === player || goalLastName === lastName || player.includes(goalPlayer) || goalPlayer.includes(player);
-  });
+/* ─── Fuzzy name match (last-name based) ─── */
+const nameParts = (n: string) => n.toLowerCase().split(/\s+/);
+const nameMatch = (a: string, b: string) => {
+  const ap = nameParts(a);
+  const bp = nameParts(b);
+  return ap.some(pa => bp.some(pb => pa.length > 2 && pb.includes(pa)));
 };
 
-const getSubInfo = (playerName: string, substitutions: Substitution[]) => {
-  const player = playerName.toLowerCase();
-
-  for (const sub of substitutions) {
-    const outName = sub.player_out.toLowerCase();
-    const inName = sub.player_in.toLowerCase();
-
-    if (outName === player || player.includes(outName) || outName.includes(player)) {
-      return { type: 'out' as const, minute: sub.minute };
-    }
-
-    if (inName === player || player.includes(inName) || inName.includes(player)) {
-      return { type: 'in' as const, minute: sub.minute };
-    }
-  }
-
-  return null;
-};
-
-const JerseyIcon = ({ number, isGoalkeeper = false, size = 42 }: { number?: number | null; isGoalkeeper?: boolean; size?: number }) => {
-  const fill = isGoalkeeper ? 'hsl(43 96% 56%)' : 'hsl(0 0% 100% / 0.13)';
-  const stroke = isGoalkeeper ? 'hsl(43 100% 78% / 0.95)' : 'hsl(0 0% 100% / 0.34)';
-  const text = isGoalkeeper ? 'hsl(0 0% 10%)' : 'hsl(0 0% 100%)';
-
-  return (
-    <svg width={size} height={size} viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="M9 9L5 15V20L9 18V37H35V18L39 20V15L35 9H28C28 12.3137 25.3137 15 22 15C18.6863 15 16 12.3137 16 9H9Z"
-        fill={fill}
-        stroke={stroke}
-        strokeWidth="1.15"
-      />
-      <path d="M16 9C16 9 18.2 11.5 22 11.5C25.8 11.5 28 9 28 9" stroke={stroke} strokeWidth="1" />
-      {number != null && (
-        <text x="22" y="28" textAnchor="middle" fill={text} fontSize="12" fontWeight="800" fontFamily="system-ui, sans-serif">
-          {number}
-        </text>
-      )}
-    </svg>
-  );
-};
-
-const PitchPlayer = ({
-  player,
-  index,
-  goals,
-  substitutions,
-  isGoalkeeper = false,
-}: {
+/* ─── PlayerChip ─── */
+interface PlayerChipProps {
   player: Player;
-  index: number;
   goals: GoalEvent[];
-  substitutions: Substitution[];
-  isGoalkeeper?: boolean;
-}) => {
-  const playerGoals = getPlayerGoals(player.player_name, goals);
-  const subInfo = getSubInfo(player.player_name, substitutions);
-  const shortName = player.player_name.split(' ').pop() || player.player_name;
-  const displayName = player.batting_order ? `${player.batting_order}. ${shortName}` : shortName;
+  subs: Substitution[];
+  teamColor: string;
+}
+
+const PlayerChip = ({ player, goals, subs, teamColor }: PlayerChipProps) => {
+  const scored = goals.filter(g => nameMatch(g.player, player.player_name));
+  const subOut = subs.find(s => nameMatch(s.player_out, player.player_name));
+  const lastName = player.player_name.split(' ').slice(-1)[0] ?? player.player_name;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.88, y: 6 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ delay: index * 0.03 }}
-      className="relative flex w-full max-w-[72px] flex-col items-center gap-0.5"
-      style={{ color: 'hsl(0 0% 100%)' }}
-    >
-      {subInfo && (
+    <div className="flex flex-col items-center gap-0.5" style={{ minWidth: 52, maxWidth: 64 }}>
+      <div className="relative">
+        {/* Jersey circle */}
         <div
-          className="absolute -top-2 right-0 z-20 rounded-full px-1.5 py-0.5 text-[8px] font-bold shadow-md"
-          style={{
-            backgroundColor: subInfo.type === 'out' ? 'hsl(var(--destructive))' : 'hsl(142 68% 45%)',
-            color: subInfo.type === 'out' ? 'hsl(var(--destructive-foreground))' : 'hsl(0 0% 100%)',
-          }}
+          className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-extrabold text-white shadow-md border-2 border-white/50"
+          style={{ backgroundColor: teamColor }}
         >
-          {subInfo.type === 'out' ? '↓' : '↑'}{subInfo.minute}
+          {player.batting_order ?? ''}
         </div>
-      )}
 
-      <div className="relative flex items-center justify-center">
-        <JerseyIcon number={player.batting_order} isGoalkeeper={isGoalkeeper} />
-        {player.is_captain && (
+        {/* Goal ⚽ badge */}
+        {scored.length > 0 && (
+          <span className="absolute -top-2 -right-2 text-sm leading-none" title="Goal scorer">
+            ⚽
+          </span>
+        )}
+
+        {/* Sub out arrow */}
+        {subOut && (
           <span
-            className="absolute -bottom-0.5 -left-1 flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-extrabold shadow-md"
-            style={{ backgroundColor: 'hsl(43 96% 56%)', color: 'hsl(0 0% 12%)' }}
+            className="absolute -bottom-1.5 -right-1.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-bold shadow"
+            title={`Subbed off ${subOut.minute}`}
           >
+            {subOut.minute}′
+          </span>
+        )}
+
+        {/* Captain */}
+        {player.is_captain && (
+          <span className="absolute -top-1.5 -left-1.5 bg-yellow-400 text-black rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-black shadow">
             C
+          </span>
+        )}
+
+        {/* Vice captain */}
+        {player.is_vice_captain && !player.is_captain && (
+          <span className="absolute -top-1.5 -left-1.5 bg-gray-300 text-black rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-black shadow">
+            V
           </span>
         )}
       </div>
 
-      {playerGoals.length > 0 && (
-        <div className="flex flex-wrap items-center justify-center gap-1 -mt-0.5 min-h-[12px]">
-          {playerGoals.map((goal, goalIndex) => (
-            <span key={`${player.id}-${goal.minute}-${goalIndex}`} className="flex items-center gap-0.5 text-[8px] font-semibold" style={{ color: 'hsl(0 0% 100% / 0.92)' }}>
-              <CircleDot className="h-2.5 w-2.5" />
-              {goal.minute}
-            </span>
-          ))}
-        </div>
+      {/* Last name */}
+      <span
+        className="text-[9px] text-white font-semibold text-center leading-tight drop-shadow-sm truncate"
+        style={{ maxWidth: 60 }}
+      >
+        {lastName}
+      </span>
+
+      {/* Position label */}
+      {player.player_role && (
+        <span className="text-[7px] text-white/60 text-center leading-none">
+          {player.player_role}
+        </span>
       )}
-
-      <span className="text-[8px] font-bold uppercase tracking-[0.12em]" style={{ color: 'hsl(0 0% 100% / 0.72)' }}>
-        {getShortPos(player.player_role)}
-      </span>
-      <span className="w-full truncate text-center text-[10px] font-semibold leading-tight" style={{ color: 'hsl(0 0% 100%)', textShadow: '0 1px 2px hsl(0 0% 0% / 0.6)' }}>
-        {displayName}
-      </span>
-    </motion.div>
-  );
-};
-
-const TeamPitchHalf = ({
-  players,
-  team,
-  goals,
-  substitutions,
-  isTopTeam,
-}: {
-  players: Player[];
-  team: Team;
-  goals: GoalEvent[];
-  substitutions: Substitution[];
-  isTopTeam: boolean;
-}) => {
-  const lines = resolveDisplayLines(players);
-  const formation = detectFormation(players);
-
-  const orderedRows: Array<{ key: DisplayLine; players: Player[] }> = isTopTeam
-    ? [
-        { key: 'gk', players: lines.gk },
-        { key: 'def', players: lines.def },
-        { key: 'pivot', players: lines.pivot },
-        { key: 'band', players: lines.band },
-        { key: 'front', players: lines.front },
-      ]
-    : [
-        { key: 'front', players: lines.front },
-        { key: 'band', players: lines.band },
-        { key: 'pivot', players: lines.pivot },
-        { key: 'def', players: lines.def },
-        { key: 'gk', players: lines.gk },
-      ];
-
-  return (
-    <div className="relative px-1 py-2">
-      <div className="mb-2 flex items-center justify-center gap-2" style={{ color: 'hsl(0 0% 100%)' }}>
-        {team.logo_url && <img src={team.logo_url} alt={team.short_name} className="h-5 w-5 object-contain" />}
-        <span className="text-sm font-bold tracking-wide">{team.short_name || team.name}</span>
-        {formation && <span className="text-xs font-semibold" style={{ color: 'hsl(0 0% 100% / 0.58)' }}>{formation}</span>}
-      </div>
-
-      <div className="flex flex-col gap-3">
-        {orderedRows.map((row, rowIndex) => {
-          if (row.players.length === 0) return null;
-
-          return (
-            <div
-              key={`${team.id}-${row.key}-${rowIndex}`}
-              className="grid w-full justify-items-center gap-x-1.5 gap-y-2"
-              style={{ gridTemplateColumns: `repeat(${row.players.length}, minmax(0, 1fr))` }}
-            >
-              {row.players.map((player, playerIndex) => (
-                <PitchPlayer
-                  key={player.id}
-                  player={player}
-                  index={rowIndex * 4 + playerIndex}
-                  goals={goals}
-                  substitutions={substitutions}
-                  isGoalkeeper={row.key === 'gk'}
-                />
-              ))}
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 };
 
-const FootballPitchLineup = ({
-  teamA,
-  teamB,
-  teamAPlayers,
-  teamBPlayers,
-  teamASubs = [],
-  teamBSubs = [],
-  goalsTeamA = [],
-  goalsTeamB = [],
-}: FootballPitchLineupProps) => {
-  const teamAStarting = teamAPlayers.filter((player) => !player.is_bench);
-  const teamBStarting = teamBPlayers.filter((player) => !player.is_bench);
-  const teamABench = teamAPlayers.filter((player) => player.is_bench);
-  const teamBBench = teamBPlayers.filter((player) => player.is_bench);
+/* ─── One horizontal formation row ─── */
+interface PitchRowProps {
+  row: { player: Player; sideOrder: number }[];
+  goals: GoalEvent[];
+  subs: Substitution[];
+  teamColor: string;
+}
 
-  if (teamAStarting.length === 0 && teamBStarting.length === 0) return null;
+const PitchRow = ({ row, goals, subs, teamColor }: PitchRowProps) => (
+  <div className="flex justify-around items-center w-full py-1 px-2">
+    {row.map(({ player }) => (
+      <PlayerChip key={player.id} player={player} goals={goals} subs={subs} teamColor={teamColor} />
+    ))}
+  </div>
+);
+
+/* ─── Main component ─── */
+const FootballPitchLineup = ({
+  teamA, teamB,
+  teamAPlayers, teamBPlayers,
+  teamASubs, teamBSubs,
+  goalsTeamA, goalsTeamB,
+}: FootballPitchLineupProps) => {
+
+  const groupsA = useMemo(() => groupPlayersByRow(teamAPlayers), [teamAPlayers]);
+  const groupsB = useMemo(() => groupPlayersByRow(teamBPlayers), [teamBPlayers]);
+
+  const formationA = useMemo(() => getFormation(teamAPlayers), [teamAPlayers]);
+  const formationB = useMemo(() => getFormation(teamBPlayers), [teamBPlayers]);
+
+  // Rows that actually have players (sorted: 0 → 5)
+  const rowsA = ([0, 1, 2, 3, 4, 5] as const).filter(r => (groupsA[r] ?? []).length > 0);
+  const rowsB = ([0, 1, 2, 3, 4, 5] as const).filter(r => (groupsB[r] ?? []).length > 0);
+
+  // Team colours – keep generic; can be extended
+  const colorA = '#1d4ed8'; // home blue
+  const colorB = '#b91c1c'; // away red
 
   return (
-    <div className="space-y-3">
-      <div
-        className="relative overflow-hidden rounded-2xl shadow-xl"
-        style={{
-          background:
-            'linear-gradient(180deg, hsl(136 58% 27%) 0%, hsl(136 57% 31%) 12%, hsl(136 60% 28%) 24%, hsl(136 58% 32%) 36%, hsl(136 58% 27%) 48%, hsl(136 57% 31%) 60%, hsl(136 60% 28%) 72%, hsl(136 58% 32%) 84%, hsl(136 58% 27%) 100%)',
-        }}
+    <div
+      className="relative w-full rounded-xl overflow-hidden select-none"
+      style={{
+        minHeight: 500,
+        background: 'linear-gradient(180deg, #14532d 0%, #166534 30%, #15803d 50%, #166534 70%, #14532d 100%)',
+      }}
+    >
+      {/* ── Pitch line markings ── */}
+      <svg
+        className="absolute inset-0 w-full h-full pointer-events-none"
+        viewBox="0 0 100 200"
+        preserveAspectRatio="none"
       >
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute inset-2 rounded-xl border" style={{ borderColor: 'hsl(0 0% 100% / 0.18)' }} />
-          <div className="absolute left-2 right-2 top-1/2 h-px" style={{ backgroundColor: 'hsl(0 0% 100% / 0.18)' }} />
-          <div className="absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border" style={{ borderColor: 'hsl(0 0% 100% / 0.14)' }} />
-          <div className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ backgroundColor: 'hsl(0 0% 100% / 0.22)' }} />
+        {/* Outer lines */}
+        <rect x="3" y="2" width="94" height="196" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="0.5" />
+        {/* Halfway line */}
+        <line x1="3" y1="100" x2="97" y2="100" stroke="rgba(255,255,255,0.22)" strokeWidth="0.5" />
+        {/* Centre circle */}
+        <circle cx="50" cy="100" r="13" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="0.5" />
+        <circle cx="50" cy="100" r="1.2" fill="rgba(255,255,255,0.3)" />
+        {/* Top penalty area */}
+        <rect x="20" y="2" width="60" height="22" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="0.45" />
+        <rect x="35" y="2" width="30" height="10" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="0.4" />
+        <circle cx="50" cy="16" r="8" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="0.4" />
+        <circle cx="50" cy="9"  r="1"  fill="rgba(255,255,255,0.2)" />
+        {/* Top goal */}
+        <rect x="40" y="0" width="20" height="3" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" />
+        {/* Bottom penalty area */}
+        <rect x="20" y="176" width="60" height="22" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="0.45" />
+        <rect x="35" y="188" width="30" height="10" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="0.4" />
+        <circle cx="50" cy="184" r="8" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="0.4" />
+        <circle cx="50" cy="191" r="1"  fill="rgba(255,255,255,0.2)" />
+        {/* Bottom goal */}
+        <rect x="40" y="197" width="20" height="3" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" />
+      </svg>
 
-          <div className="absolute left-1/2 top-2 h-16 w-44 -translate-x-1/2 border-b border-l border-r" style={{ borderColor: 'hsl(0 0% 100% / 0.16)' }} />
-          <div className="absolute left-1/2 top-2 h-8 w-20 -translate-x-1/2 border-b border-l border-r" style={{ borderColor: 'hsl(0 0% 100% / 0.12)' }} />
-          <div className="absolute left-1/2 top-[66px] h-8 w-16 -translate-x-1/2 rounded-b-full border-b" style={{ borderColor: 'hsl(0 0% 100% / 0.1)' }} />
-
-          <div className="absolute bottom-2 left-1/2 h-16 w-44 -translate-x-1/2 border-l border-r border-t" style={{ borderColor: 'hsl(0 0% 100% / 0.16)' }} />
-          <div className="absolute bottom-2 left-1/2 h-8 w-20 -translate-x-1/2 border-l border-r border-t" style={{ borderColor: 'hsl(0 0% 100% / 0.12)' }} />
-          <div className="absolute bottom-[66px] left-1/2 h-8 w-16 -translate-x-1/2 rounded-t-full border-t" style={{ borderColor: 'hsl(0 0% 100% / 0.1)' }} />
+      {/* ════════════════════════════════════
+          TEAM B – top half
+          Order: GK (row 0) at very top → FW (row 5) toward centre
+          ════════════════════════════════════ */}
+      <div className="relative z-10 pt-2 pb-0" style={{ minHeight: '47%' }}>
+        {/* Team B header */}
+        <div className="flex items-center justify-center gap-1.5 mb-1.5">
+          {teamB.logo_url && (
+            <img src={teamB.logo_url} alt={teamB.short_name ?? teamB.name} className="w-5 h-5 object-contain" />
+          )}
+          <span className="text-white text-[11px] font-bold tracking-wide drop-shadow">
+            {teamB.short_name ?? teamB.name}
+          </span>
+          {formationB && (
+            <span className="text-white/50 text-[10px]">{formationB}</span>
+          )}
         </div>
 
-        <div className="relative z-10 px-1 py-2">
-          {teamAStarting.length > 0 && (
-            <TeamPitchHalf
-              players={teamAPlayers}
-              team={teamA}
-              goals={goalsTeamA}
-              substitutions={teamASubs}
-              isTopTeam={true}
-            />
-          )}
-
-          {teamAStarting.length > 0 && teamBStarting.length > 0 && (
-            <div className="flex items-center justify-center py-1">
-              <span
-                className="rounded-full px-3 py-0.5 text-[10px] font-bold"
-                style={{ backgroundColor: 'hsl(0 0% 100% / 0.08)', color: 'hsl(0 0% 100% / 0.34)' }}
-              >
-                VS
-              </span>
-            </div>
-          )}
-
-          {teamBStarting.length > 0 && (
-            <TeamPitchHalf
-              players={teamBPlayers}
-              team={teamB}
+        {/* Rows: row 0 first (GK top), then upward rows toward centre */}
+        <div className="flex flex-col gap-0.5">
+          {rowsB.map(r => (
+            <PitchRow
+              key={r}
+              row={groupsB[r]!}
               goals={goalsTeamB}
-              substitutions={teamBSubs}
-              isTopTeam={false}
+              subs={teamBSubs}
+              teamColor={colorB}
             />
-          )}
+          ))}
         </div>
       </div>
 
-      {[
-        { team: teamA, bench: teamABench, substitutions: teamASubs },
-        { team: teamB, bench: teamBBench, substitutions: teamBSubs },
-      ].map(({ team, bench, substitutions }) => {
-        if (bench.length === 0 && substitutions.length === 0) return null;
+      {/* ── Halfway line label ── */}
+      <div className="relative z-10 flex items-center justify-center my-0.5">
+        <div className="absolute w-full h-px bg-white/20" />
+      </div>
 
-        return (
-          <div key={team.id} className="rounded-lg border border-border/20 bg-muted/30 p-3">
-            <div className="mb-2 flex items-center gap-2">
-              {team.logo_url && <img src={team.logo_url} alt="" className="h-4 w-4 object-contain" />}
-              <span className="text-xs font-bold">{team.short_name || team.name}</span>
-              <Badge variant="outline" className="px-1.5 py-0 text-[8px] font-medium">Bench</Badge>
-            </div>
+      {/* ════════════════════════════════════
+          TEAM A – bottom half
+          Order: FW (row 5) toward centre → GK (row 0) at very bottom
+          (reverse of rowsA so high-row numbers appear near centre)
+          ════════════════════════════════════ */}
+      <div className="relative z-10 pt-0 pb-2" style={{ minHeight: '47%' }}>
+        <div className="flex flex-col gap-0.5">
+          {[...rowsA].reverse().map(r => (
+            <PitchRow
+              key={r}
+              row={groupsA[r]!}
+              goals={goalsTeamA}
+              subs={teamASubs}
+              teamColor={colorA}
+            />
+          ))}
+        </div>
 
-            {bench.length > 0 && (
-              <div className="mb-2 flex flex-wrap gap-1.5">
-                {bench.map((player) => (
-                  <div key={player.id} className="flex items-center gap-1 rounded-md bg-muted/50 px-1.5 py-1">
-                    <JerseyIcon number={player.batting_order} size={20} />
-                    <div className="min-w-0">
-                      <div className="max-w-[120px] truncate text-[9px] font-medium leading-tight">{player.player_name}</div>
-                      {player.player_role && <div className="text-[7px] text-muted-foreground">{getShortPos(player.player_role)}</div>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {substitutions.length > 0 && (
-              <div className="space-y-1 border-t border-border/20 pt-1.5">
-                <span className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">Substitutions</span>
-                {substitutions.map((substitution) => (
-                  <div key={substitution.id} className="flex items-center gap-1.5 text-[10px]">
-                    <Badge className="border-primary/30 bg-primary/20 px-1.5 py-0 text-[8px] font-bold text-primary">{substitution.minute}</Badge>
-                    <span style={{ color: 'hsl(var(--destructive))' }}>↓ {substitution.player_out}</span>
-                    <ArrowRightLeft className="h-2.5 w-2.5 text-muted-foreground/60" />
-                    <span style={{ color: 'hsl(142 68% 40%)' }}>↑ {substitution.player_in}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
+        {/* Team A footer */}
+        <div className="flex items-center justify-center gap-1.5 mt-1.5">
+          {teamA.logo_url && (
+            <img src={teamA.logo_url} alt={teamA.short_name ?? teamA.name} className="w-5 h-5 object-contain" />
+          )}
+          <span className="text-white text-[11px] font-bold tracking-wide drop-shadow">
+            {teamA.short_name ?? teamA.name}
+          </span>
+          {formationA && (
+            <span className="text-white/50 text-[10px]">{formationA}</span>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
