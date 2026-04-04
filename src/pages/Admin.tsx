@@ -3006,7 +3006,7 @@ const Admin = () => {
                 {selectedMatchForPlayingXI && selectedMatchForPlayingXI.team_a && selectedMatchForPlayingXI.team_b && (
                   <div className="space-y-6">
                     {/* Manual Toss Manager - Only for Cricket */}
-                    {selectedMatchForPlayingXI.sport?.name?.toLowerCase() !== 'football' && (
+                    {!selectedMatchForPlayingXI.sport?.name?.toLowerCase().includes('football') && (
                       <ManualTossManager
                         matchId={selectedMatchForPlayingXI.id}
                         teamA={selectedMatchForPlayingXI.team_a}
