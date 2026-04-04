@@ -178,7 +178,7 @@ async function tryWikidata(playerName: string, sport: string): Promise<string | 
       }
       await new Promise(r => setTimeout(r, 200));
     }
-  } catch (e) {
+  } catch (e: any) {
     console.log(`[FetchImages] Wikidata error for ${playerName}: ${e.message}`);
   }
   return null;
