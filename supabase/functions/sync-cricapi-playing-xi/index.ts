@@ -344,7 +344,7 @@ Deno.serve(async (req) => {
     }
 
     // If isMatchXI and full squad data is available, add bench players
-    const fullSquadData = apiData._fullSquadData as CricApiResponse | undefined;
+    const fullSquadData = (apiData as any)._fullSquadData as CricApiResponse | undefined;
     if (isMatchXI && fullSquadData && fullSquadData.data) {
       console.log(`[CricAPI] Adding bench players from full squad data`);
       
