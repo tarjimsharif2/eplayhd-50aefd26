@@ -261,7 +261,7 @@ Deno.serve(async (req) => {
       message: `${updatedCount} out of ${players.length} missing images found`
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('[FetchImages] Error:', error);
     return new Response(JSON.stringify({ success: false, error: error.message || 'Unknown error' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
