@@ -246,7 +246,7 @@ Deno.serve(async (req) => {
         }
 
         await new Promise(r => setTimeout(r, 300));
-      } catch (err) {
+      } catch (err: any) {
         console.warn(`[FetchImages] Error: ${player.player_name}: ${err.message}`);
         errors.push(`${player.player_name}: ${err.message}`);
       }
