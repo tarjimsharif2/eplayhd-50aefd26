@@ -97,7 +97,7 @@ const MatchList = () => {
         let durationMinutes = match.match_duration_minutes;
         if (!durationMinutes) {
           const sportName = match.sport?.name?.toLowerCase() || '';
-          if (sportName === 'football' || sportName === 'soccer') {
+          if (sportName.includes('football') || sportName.includes('soccer')) {
             durationMinutes = 120; // 2 hours for football
           }
         }
@@ -305,7 +305,7 @@ const MatchList = () => {
         let durationMinutes = match.match_duration_minutes;
         if (!durationMinutes) {
           const sportName = match.sport?.name?.toLowerCase() || '';
-          if (sportName === 'football' || sportName === 'soccer') {
+          if (sportName.includes('football') || sportName.includes('soccer')) {
             durationMinutes = 120;
           }
         }
@@ -402,7 +402,7 @@ const MatchList = () => {
         let durationMinutes = match.match_duration_minutes;
         if (!durationMinutes) {
           const sportName = match.sport?.name?.toLowerCase() || '';
-          if (sportName === 'football' || sportName === 'soccer') {
+          if (sportName.includes('football') || sportName.includes('soccer')) {
             durationMinutes = 120;
           }
         }

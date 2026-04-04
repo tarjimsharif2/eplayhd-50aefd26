@@ -154,7 +154,7 @@ async function fetchWithRetry(url: string, maxRetries = 3, timeoutMs = 15000): P
       
       clearTimeout(timeoutId);
       return res;
-    } catch (err) {
+    } catch (err: any) {
       console.warn(`[CricAPI] Fetch attempt ${attempt}/${maxRetries} failed: ${err.message}`);
       if (attempt === maxRetries) throw err;
       await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000));
@@ -344,7 +344,7 @@ Deno.serve(async (req) => {
     }
 
     // If isMatchXI and full squad data is available, add bench players
-    const fullSquadData = apiData._fullSquadData as CricApiResponse | undefined;
+    const fullSquadData = (apiData as any)._fullSquadData as CricApiResponse | undefined;
     if (isMatchXI && fullSquadData && fullSquadData.data) {
       console.log(`[CricAPI] Adding bench players from full squad data`);
       
@@ -427,7 +427,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('[CricAPI Squad] Error:', error);
     return new Response(JSON.stringify({ 
       success: false, 

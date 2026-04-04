@@ -80,7 +80,7 @@ async function tryESPN(playerName: string, sportType: string): Promise<string | 
     }
     
     console.log(`[FetchImages] ~ ESPN: ${playerName} - no headshot in ${items.length} results`);
-  } catch (e) {
+  } catch (e: any) {
     console.log(`[FetchImages] ESPN error for ${playerName}: ${e.message}`);
   }
   return null;
@@ -124,7 +124,7 @@ async function tryWikipedia(playerName: string, sport: string): Promise<string |
         await new Promise(r => setTimeout(r, 150));
       }
     }
-  } catch (e) {
+  } catch (e: any) {
     console.log(`[FetchImages] Wiki error for ${playerName}: ${e.message}`);
   }
   return null;
@@ -178,7 +178,7 @@ async function tryWikidata(playerName: string, sport: string): Promise<string | 
       }
       await new Promise(r => setTimeout(r, 200));
     }
-  } catch (e) {
+  } catch (e: any) {
     console.log(`[FetchImages] Wikidata error for ${playerName}: ${e.message}`);
   }
   return null;
@@ -246,7 +246,7 @@ Deno.serve(async (req) => {
         }
 
         await new Promise(r => setTimeout(r, 300));
-      } catch (err) {
+      } catch (err: any) {
         console.warn(`[FetchImages] Error: ${player.player_name}: ${err.message}`);
         errors.push(`${player.player_name}: ${err.message}`);
       }
@@ -261,7 +261,7 @@ Deno.serve(async (req) => {
       message: `${updatedCount} out of ${players.length} missing images found`
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('[FetchImages] Error:', error);
     return new Response(JSON.stringify({ success: false, error: error.message || 'Unknown error' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

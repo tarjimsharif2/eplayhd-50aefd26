@@ -974,7 +974,7 @@ const Admin = () => {
     try {
       // Check if it's a football match
       const sport = sports?.find(s => s.id === match.sport_id);
-      const isFootball = sport?.name?.toLowerCase() === 'football' || sport?.name?.toLowerCase() === 'soccer';
+      const isFootball = sport?.name?.toLowerCase().includes('football') || sport?.name?.toLowerCase().includes('soccer');
       
       if (isFootball) {
         // For football - sync scores, lineups, and substitutions
@@ -3006,7 +3006,7 @@ const Admin = () => {
                 {selectedMatchForPlayingXI && selectedMatchForPlayingXI.team_a && selectedMatchForPlayingXI.team_b && (
                   <div className="space-y-6">
                     {/* Manual Toss Manager - Only for Cricket */}
-                    {selectedMatchForPlayingXI.sport?.name?.toLowerCase() !== 'football' && (
+                    {!selectedMatchForPlayingXI.sport?.name?.toLowerCase().includes('football') && (
                       <ManualTossManager
                         matchId={selectedMatchForPlayingXI.id}
                         teamA={selectedMatchForPlayingXI.team_a}
@@ -3015,7 +3015,7 @@ const Admin = () => {
                     )}
 
                     {/* Playing XI / Lineup Manager */}
-                    {selectedMatchForPlayingXI.sport?.name?.toLowerCase() === 'football' ? (
+                    {selectedMatchForPlayingXI.sport?.name?.toLowerCase().includes('football') ? (
                       <FootballPlayingXIManager
                         matchId={selectedMatchForPlayingXI.id}
                         teamA={selectedMatchForPlayingXI.team_a}
