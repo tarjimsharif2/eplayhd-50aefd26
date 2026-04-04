@@ -3015,7 +3015,7 @@ const Admin = () => {
                     )}
 
                     {/* Playing XI / Lineup Manager */}
-                    {selectedMatchForPlayingXI.sport?.name?.toLowerCase() === 'football' ? (
+                    {selectedMatchForPlayingXI.sport?.name?.toLowerCase().includes('football') ? (
                       <FootballPlayingXIManager
                         matchId={selectedMatchForPlayingXI.id}
                         teamA={selectedMatchForPlayingXI.team_a}
