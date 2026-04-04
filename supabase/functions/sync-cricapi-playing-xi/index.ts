@@ -154,7 +154,7 @@ async function fetchWithRetry(url: string, maxRetries = 3, timeoutMs = 15000): P
       
       clearTimeout(timeoutId);
       return res;
-    } catch (err) {
+    } catch (err: any) {
       console.warn(`[CricAPI] Fetch attempt ${attempt}/${maxRetries} failed: ${err.message}`);
       if (attempt === maxRetries) throw err;
       await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 1000));
