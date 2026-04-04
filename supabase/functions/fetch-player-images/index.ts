@@ -80,7 +80,7 @@ async function tryESPN(playerName: string, sportType: string): Promise<string | 
     }
     
     console.log(`[FetchImages] ~ ESPN: ${playerName} - no headshot in ${items.length} results`);
-  } catch (e) {
+  } catch (e: any) {
     console.log(`[FetchImages] ESPN error for ${playerName}: ${e.message}`);
   }
   return null;
