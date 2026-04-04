@@ -124,7 +124,7 @@ async function tryWikipedia(playerName: string, sport: string): Promise<string |
         await new Promise(r => setTimeout(r, 150));
       }
     }
-  } catch (e) {
+  } catch (e: any) {
     console.log(`[FetchImages] Wiki error for ${playerName}: ${e.message}`);
   }
   return null;
