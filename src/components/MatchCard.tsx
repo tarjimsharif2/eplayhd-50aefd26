@@ -45,7 +45,7 @@ const SportIcon = ({ sport, iconUrl }: { sport: string; iconUrl?: string | null 
     );
   }
   
-  if (sportLower === 'football') {
+  if (sportLower.includes('football')) {
     return (
       <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
         <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2"/>
