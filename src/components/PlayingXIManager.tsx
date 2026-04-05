@@ -785,6 +785,38 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
         }
       }
 
+      // Handle API Cricket lineups sync separately
+      if (source === 'api_cricket') {
+        toast({ title: "Syncing Lineups...", description: "Fetching playing XI from API Cricket..." });
+        const response = await supabase.functions.invoke('api-cricket', {
+          body: {
+            action: 'syncLineups',
+            matchId,
+            teamAName: teamA.name,
+            teamBName: teamB.name,
+            teamAId: teamA.id,
+            teamBId: teamB.id,
+          },
+        });
+
+        if (response.error) {
+          throw new Error(response.error.message || 'Failed to sync lineups');
+        }
+
+        const result = response.data;
+        if (!result?.success) {
+          throw new Error(result?.error || 'Failed to sync lineups from API Cricket');
+        }
+
+        toast({
+          title: "✅ Lineups Synced!",
+          description: result.message || `Synced players from API Cricket`,
+        });
+        queryClient.invalidateQueries({ queryKey: ['playing_xi', matchId] });
+        setFetchingSquad(false);
+        return;
+      }
+
       let functionName = 'sync-playing-xi';
       if (source === 'espn') {
         functionName = 'sync-espn-playing-xi';
