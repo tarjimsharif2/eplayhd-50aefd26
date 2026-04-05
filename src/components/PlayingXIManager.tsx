@@ -1495,6 +1495,13 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="bg-background border">
               <DropdownMenuItem 
+                onClick={() => handleFetchSquad('api_cricket', players && players.length > 0)}
+                disabled={fetchingSquad}
+              >
+                <CloudDownload className="w-4 h-4 mr-2" />
+                API Cricket Lineups (api-cricket.com)
+              </DropdownMenuItem>
+              <DropdownMenuItem 
                 onClick={() => handleFetchSquad('cricapi', players && players.length > 0)}
                 disabled={fetchingSquad}
               >
