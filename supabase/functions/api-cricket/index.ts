@@ -625,6 +625,180 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (action === 'syncLineups' && matchId) {
+      // Sync playing XI / lineups from API Cricket
+      const { teamAId, teamBId } = body;
+      
+      if (!teamAId || !teamBId) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'teamAId and teamBId are required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Search past 7 days for the match
+      const matchingEvent = await findMatchingEvent(true);
+      
+      if (!matchingEvent) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'No matching event found in API Cricket' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // If no lineups in initial response, fetch detailed event
+      let eventData = matchingEvent;
+      if (!eventData.lineups && eventData.event_key && eventData.event_date_start) {
+        const detailed = await fetchEventDetails(eventData.event_key, eventData.event_date_start);
+        if (detailed) eventData = detailed;
+      }
+
+      if (!eventData.lineups) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'No lineups data available for this match in API Cricket' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const lineups = eventData.lineups;
+      const homeLineup = lineups.home_team?.starting_lineups || [];
+      const awayLineup = lineups.away_team?.starting_lineups || [];
+
+      if (homeLineup.length === 0 && awayLineup.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Lineups are empty for this match' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Map API home/away to our team_a/team_b
+      const apiHomeTeam = eventData.event_home_team || '';
+      const apiAwayTeam = eventData.event_away_team || '';
+      
+      const teamAMatchesAway = teamANormalized && (
+        normalizeTeamName(apiAwayTeam).includes(teamANormalized) || 
+        teamANormalized.includes(normalizeTeamName(apiAwayTeam))
+      );
+      const teamAMatchesHome = teamANormalized && (
+        normalizeTeamName(apiHomeTeam).includes(teamANormalized) || 
+        teamANormalized.includes(normalizeTeamName(apiHomeTeam))
+      );
+      
+      let lineupForA = homeLineup;
+      let lineupForB = awayLineup;
+      
+      if (teamAMatchesAway && !teamAMatchesHome) {
+        lineupForA = awayLineup;
+        lineupForB = homeLineup;
+        console.log(`[syncLineups] Team A maps to API away team`);
+      } else {
+        console.log(`[syncLineups] Team A maps to API home team`);
+      }
+
+      // Delete existing players for this match
+      const { error: deleteError } = await supabase
+        .from('match_playing_xi')
+        .delete()
+        .eq('match_id', matchId);
+
+      if (deleteError) {
+        console.error('Error deleting existing players:', deleteError);
+      }
+
+      // Build player records
+      const playersToInsert: any[] = [];
+
+      lineupForA.forEach((p: any, idx: number) => {
+        playersToInsert.push({
+          match_id: matchId,
+          team_id: teamAId,
+          player_name: p.player || p.player_name || 'Unknown',
+          player_role: p.player_type || null,
+          is_captain: p.player_captain === '1' || false,
+          is_bench: false,
+          batting_order: idx + 1,
+          is_vice_captain: false,
+          is_wicket_keeper: (p.player_type || '').toLowerCase().includes('keeper') || false,
+        });
+      });
+
+      lineupForB.forEach((p: any, idx: number) => {
+        playersToInsert.push({
+          match_id: matchId,
+          team_id: teamBId,
+          player_name: p.player || p.player_name || 'Unknown',
+          player_role: p.player_type || null,
+          is_captain: p.player_captain === '1' || false,
+          is_bench: false,
+          batting_order: idx + 1,
+          is_vice_captain: false,
+          is_wicket_keeper: (p.player_type || '').toLowerCase().includes('keeper') || false,
+        });
+      });
+
+      // Also add substitutes/bench if available
+      const homeSubs = lineups.home_team?.substitutes || [];
+      const awaySubs = lineups.away_team?.substitutes || [];
+      const subsForA = (teamAMatchesAway && !teamAMatchesHome) ? awaySubs : homeSubs;
+      const subsForB = (teamAMatchesAway && !teamAMatchesHome) ? homeSubs : awaySubs;
+
+      subsForA.forEach((p: any, idx: number) => {
+        playersToInsert.push({
+          match_id: matchId,
+          team_id: teamAId,
+          player_name: p.player || p.player_name || 'Unknown',
+          player_role: p.player_type || null,
+          is_captain: false,
+          is_bench: true,
+          batting_order: idx + 1,
+          is_vice_captain: false,
+          is_wicket_keeper: false,
+        });
+      });
+
+      subsForB.forEach((p: any, idx: number) => {
+        playersToInsert.push({
+          match_id: matchId,
+          team_id: teamBId,
+          player_name: p.player || p.player_name || 'Unknown',
+          player_role: p.player_type || null,
+          is_captain: false,
+          is_bench: true,
+          batting_order: idx + 1,
+          is_vice_captain: false,
+          is_wicket_keeper: false,
+        });
+      });
+
+      if (playersToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from('match_playing_xi')
+          .insert(playersToInsert);
+
+        if (insertError) {
+          console.error('Error inserting players:', insertError);
+          return new Response(
+            JSON.stringify({ success: false, error: 'Failed to save lineups to database' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+
+      console.log(`[syncLineups] Saved ${playersToInsert.length} players (TeamA: ${lineupForA.length}+${subsForA.length} subs, TeamB: ${lineupForB.length}+${subsForB.length} subs)`);
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: `Synced ${playersToInsert.length} players from API Cricket lineups`,
+          teamACount: lineupForA.length,
+          teamBCount: lineupForB.length,
+          teamASubsCount: subsForA.length,
+          teamBSubsCount: subsForB.length,
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (action === 'getEventDetails' && eventKey) {
       // Fetch specific event details
       const today = new Date().toISOString().split('T')[0];

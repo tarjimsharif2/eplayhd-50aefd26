@@ -769,7 +769,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
   };
 
   // Fetch squad from RapidAPI (Cricbuzz)
-  const handleFetchSquad = async (source: 'cricbuzz' | 'espn' | 'scrape' | 'rapidapi' | 'cricapi' | 'cricapi_xi', forceRefresh = false) => {
+  const handleFetchSquad = async (source: 'cricbuzz' | 'espn' | 'scrape' | 'rapidapi' | 'cricapi' | 'cricapi_xi' | 'api_cricket', forceRefresh = false) => {
     setFetchingSquad(true);
 
     try {
