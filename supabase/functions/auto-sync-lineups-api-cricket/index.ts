@@ -37,12 +37,20 @@ Deno.serve(async (req) => {
 
     console.log('[auto-sync-lineups] Starting API Cricket lineup auto-sync...');
 
-    // Get API Cricket key from settings
+    // Get settings
     const { data: settings } = await supabase
       .from('site_settings')
-      .select('api_cricket_key, api_cricket_enabled')
+      .select('api_cricket_key, api_cricket_enabled, playing_xi_auto_sync_source')
       .limit(1)
       .maybeSingle();
+
+    const syncSource = (settings as any)?.playing_xi_auto_sync_source || 'api_cricket';
+    console.log(`[auto-sync-lineups] Source: ${syncSource}`);
+
+    // If source is ESPN, delegate to ESPN sync logic
+    if (syncSource === 'espn') {
+      return await handleEspnAutoSync(supabase, corsHeaders);
+    }
 
     if (!settings?.api_cricket_enabled || !settings?.api_cricket_key) {
       console.log('[auto-sync-lineups] API Cricket disabled or no key configured');
