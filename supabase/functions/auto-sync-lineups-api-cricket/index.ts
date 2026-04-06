@@ -243,18 +243,40 @@ Deno.serve(async (req) => {
         // Delete existing players
         await supabase.from('match_playing_xi').delete().eq('match_id', match.id);
 
-        // Build player records
+        // Build player records - cap Playing XI at 11
         const playersToInsert: any[] = [];
 
-        const addPlayers = (lineup: any[], teamId: string, isBench: boolean) => {
-          lineup.forEach((p: any, idx: number) => {
+        const homeSubs = lineups.home_team?.substitutes || [];
+        const awaySubs = lineups.away_team?.substitutes || [];
+        const subsForA = (teamAMatchesAway && !teamAMatchesHome) ? awaySubs : homeSubs;
+        const subsForB = (teamAMatchesAway && !teamAMatchesHome) ? homeSubs : awaySubs;
+
+        const addTeamPlayers = (lineup: any[], subs: any[], teamId: string) => {
+          const xi = lineup.slice(0, 11);
+          const overflowToBench = lineup.slice(11);
+          
+          xi.forEach((p: any, idx: number) => {
             playersToInsert.push({
               match_id: match.id,
               team_id: teamId,
               player_name: p.player || p.player_name || 'Unknown',
               player_role: p.player_type || null,
               is_captain: p.player_captain === '1' || false,
-              is_bench: isBench,
+              is_bench: false,
+              batting_order: idx + 1,
+              is_vice_captain: false,
+              is_wicket_keeper: (p.player_type || '').toLowerCase().includes('keeper') || false,
+            });
+          });
+          
+          [...overflowToBench, ...subs].forEach((p: any, idx: number) => {
+            playersToInsert.push({
+              match_id: match.id,
+              team_id: teamId,
+              player_name: p.player || p.player_name || 'Unknown',
+              player_role: p.player_type || null,
+              is_captain: false,
+              is_bench: true,
               batting_order: idx + 1,
               is_vice_captain: false,
               is_wicket_keeper: (p.player_type || '').toLowerCase().includes('keeper') || false,
@@ -262,14 +284,8 @@ Deno.serve(async (req) => {
           });
         };
 
-        addPlayers(lineupForA, teamAId, false);
-        addPlayers(lineupForB, teamBId, false);
-
-        // Subs
-        const homeSubs = lineups.home_team?.substitutes || [];
-        const awaySubs = lineups.away_team?.substitutes || [];
-        addPlayers(teamAMatchesAway && !teamAMatchesHome ? awaySubs : homeSubs, teamAId, true);
-        addPlayers(teamAMatchesAway && !teamAMatchesHome ? homeSubs : awaySubs, teamBId, true);
+        addTeamPlayers(lineupForA, subsForA, teamAId);
+        addTeamPlayers(lineupForB, subsForB, teamBId);
 
         if (playersToInsert.length > 0) {
           const { error: insertError } = await supabase

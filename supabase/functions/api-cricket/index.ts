@@ -705,70 +705,54 @@ Deno.serve(async (req) => {
         console.error('Error deleting existing players:', deleteError);
       }
 
-      // Build player records
+      // Build player records - cap Playing XI at 11, rest go to bench
       const playersToInsert: any[] = [];
 
-      lineupForA.forEach((p: any, idx: number) => {
-        playersToInsert.push({
-          match_id: matchId,
-          team_id: teamAId,
-          player_name: p.player || p.player_name || 'Unknown',
-          player_role: p.player_type || null,
-          is_captain: p.player_captain === '1' || false,
-          is_bench: false,
-          batting_order: idx + 1,
-          is_vice_captain: false,
-          is_wicket_keeper: (p.player_type || '').toLowerCase().includes('keeper') || false,
-        });
-      });
-
-      lineupForB.forEach((p: any, idx: number) => {
-        playersToInsert.push({
-          match_id: matchId,
-          team_id: teamBId,
-          player_name: p.player || p.player_name || 'Unknown',
-          player_role: p.player_type || null,
-          is_captain: p.player_captain === '1' || false,
-          is_bench: false,
-          batting_order: idx + 1,
-          is_vice_captain: false,
-          is_wicket_keeper: (p.player_type || '').toLowerCase().includes('keeper') || false,
-        });
-      });
-
-      // Also add substitutes/bench if available
+      // Also get substitutes
       const homeSubs = lineups.home_team?.substitutes || [];
       const awaySubs = lineups.away_team?.substitutes || [];
       const subsForA = (teamAMatchesAway && !teamAMatchesHome) ? awaySubs : homeSubs;
       const subsForB = (teamAMatchesAway && !teamAMatchesHome) ? homeSubs : awaySubs;
 
-      subsForA.forEach((p: any, idx: number) => {
-        playersToInsert.push({
-          match_id: matchId,
-          team_id: teamAId,
-          player_name: p.player || p.player_name || 'Unknown',
-          player_role: p.player_type || null,
-          is_captain: false,
-          is_bench: true,
-          batting_order: idx + 1,
-          is_vice_captain: false,
-          is_wicket_keeper: false,
+      // Helper: add players with 11-cap for Playing XI
+      const addTeamPlayers = (lineup: any[], subs: any[], teamId: string) => {
+        // First 11 from starting_lineups = Playing XI, rest = bench
+        const xi = lineup.slice(0, 11);
+        const overflowToBench = lineup.slice(11);
+        
+        xi.forEach((p: any, idx: number) => {
+          playersToInsert.push({
+            match_id: matchId,
+            team_id: teamId,
+            player_name: p.player || p.player_name || 'Unknown',
+            player_role: p.player_type || null,
+            is_captain: p.player_captain === '1' || false,
+            is_bench: false,
+            batting_order: idx + 1,
+            is_vice_captain: false,
+            is_wicket_keeper: (p.player_type || '').toLowerCase().includes('keeper') || false,
+          });
         });
-      });
+        
+        // Combine overflow + subs as bench
+        const allBench = [...overflowToBench, ...subs];
+        allBench.forEach((p: any, idx: number) => {
+          playersToInsert.push({
+            match_id: matchId,
+            team_id: teamId,
+            player_name: p.player || p.player_name || 'Unknown',
+            player_role: p.player_type || null,
+            is_captain: false,
+            is_bench: true,
+            batting_order: idx + 1,
+            is_vice_captain: false,
+            is_wicket_keeper: (p.player_type || '').toLowerCase().includes('keeper') || false,
+          });
+        });
+      };
 
-      subsForB.forEach((p: any, idx: number) => {
-        playersToInsert.push({
-          match_id: matchId,
-          team_id: teamBId,
-          player_name: p.player || p.player_name || 'Unknown',
-          player_role: p.player_type || null,
-          is_captain: false,
-          is_bench: true,
-          batting_order: idx + 1,
-          is_vice_captain: false,
-          is_wicket_keeper: false,
-        });
-      });
+      addTeamPlayers(lineupForA, subsForA, teamAId);
+      addTeamPlayers(lineupForB, subsForB, teamBId);
 
       if (playersToInsert.length > 0) {
         const { error: insertError } = await supabase
