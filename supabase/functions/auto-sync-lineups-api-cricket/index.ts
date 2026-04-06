@@ -25,6 +25,121 @@ async function fetchWithRetry(url: string, maxRetries = 2): Promise<Response> {
 const normalizeTeamName = (name: string) =>
   name?.toLowerCase().replace(/[^a-z0-9]/g, '') || '';
 
+// ESPN auto-sync handler
+async function handleEspnAutoSync(supabase: any, corsHeaders: Record<string, string>): Promise<Response> {
+  const now = new Date();
+
+  const { data: upcomingMatches, error: matchesError } = await supabase
+    .from('matches')
+    .select(`
+      id, match_date, match_time, match_start_time, status, espn_event_id,
+      team_a_id, team_b_id, sport_id,
+      team_a:teams!matches_team_a_id_fkey(id, name, short_name),
+      team_b:teams!matches_team_b_id_fkey(id, name, short_name),
+      sport:sports!matches_sport_id_fkey(name),
+      tournament:tournaments(sport)
+    `)
+    .in('status', ['upcoming', 'live'])
+    .eq('is_active', true);
+
+  if (matchesError || !upcomingMatches?.length) {
+    return new Response(
+      JSON.stringify({ success: true, message: 'No matches to sync via ESPN', synced: 0 }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const eligibleMatches: any[] = [];
+  for (const match of upcomingMatches) {
+    const sportName = (match.sport as any)?.name?.toLowerCase() || '';
+    const tournamentSport = (match.tournament as any)?.sport?.toLowerCase() || '';
+    const isCricket = sportName.includes('cricket') || tournamentSport.includes('cricket');
+    if (!isCricket) continue;
+
+    let matchStartTime: Date | null = null;
+    if (match.match_start_time) {
+      matchStartTime = new Date(match.match_start_time);
+    } else if (match.match_date && match.match_time) {
+      const timeParts = match.match_time.match(/(\d{1,2}):(\d{2})/);
+      if (timeParts) matchStartTime = new Date(`${match.match_date}T${timeParts[0]}:00Z`);
+    }
+    if (!matchStartTime) continue;
+
+    const minutesUntilStart = (matchStartTime.getTime() - now.getTime()) / (1000 * 60);
+    if (match.status === 'live' || (match.status === 'upcoming' && minutesUntilStart <= 20 && minutesUntilStart >= -30)) {
+      const { count } = await supabase
+        .from('match_playing_xi')
+        .select('id', { count: 'exact', head: true })
+        .eq('match_id', match.id)
+        .eq('is_bench', false);
+
+      if ((count || 0) >= 11) continue;
+      eligibleMatches.push(match);
+    }
+  }
+
+  if (eligibleMatches.length === 0) {
+    return new Response(
+      JSON.stringify({ success: true, message: 'No ESPN matches need lineup sync', synced: 0 }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  let synced = 0;
+  const results: any[] = [];
+
+  for (const match of eligibleMatches) {
+    try {
+      const teamAName = (match.team_a as any)?.name || '';
+      const teamBName = (match.team_b as any)?.name || '';
+      const teamAShortName = (match.team_a as any)?.short_name || '';
+      const teamBShortName = (match.team_b as any)?.short_name || '';
+
+      console.log(`[auto-sync-lineups-espn] Syncing: ${teamAName} vs ${teamBName}`);
+
+      // Call sync-espn-playing-xi edge function internally
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      
+      const espnResponse = await fetch(`${supabaseUrl}/functions/v1/sync-espn-playing-xi`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+        },
+        body: JSON.stringify({
+          matchId: match.id,
+          teamAId: match.team_a_id,
+          teamBId: match.team_b_id,
+          teamAName,
+          teamAShortName,
+          teamBName,
+          teamBShortName,
+        }),
+      });
+
+      if (espnResponse.ok) {
+        const espnResult = await espnResponse.json();
+        if (espnResult.success && espnResult.playersAdded > 0) {
+          synced++;
+          results.push({ matchId: match.id, status: 'synced', players: espnResult.playersAdded });
+        } else {
+          results.push({ matchId: match.id, status: espnResult.error || 'no_data' });
+        }
+      } else {
+        results.push({ matchId: match.id, status: 'espn_error' });
+      }
+    } catch (err) {
+      results.push({ matchId: match.id, status: 'error', error: String(err) });
+    }
+  }
+
+  return new Response(
+    JSON.stringify({ success: true, synced, total: eligibleMatches.length, source: 'espn', results }),
+    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
