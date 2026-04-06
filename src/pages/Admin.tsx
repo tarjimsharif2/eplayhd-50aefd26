@@ -323,6 +323,8 @@ const Admin = () => {
     // Points table auto sync
     points_table_auto_sync_enabled: false,
     points_table_sync_time: '03:00',
+    // Playing XI auto sync source
+    playing_xi_auto_sync_source: 'api_cricket',
   });
   
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -375,6 +377,7 @@ const Admin = () => {
         admin_slug: (siteSettings as any).admin_slug || 'admin',
         points_table_auto_sync_enabled: (siteSettings as any).points_table_auto_sync_enabled || false,
         points_table_sync_time: (siteSettings as any).points_table_sync_time || '03:00',
+        playing_xi_auto_sync_source: (siteSettings as any).playing_xi_auto_sync_source || 'api_cricket',
       });
     }
   }, [siteSettings]);
@@ -1664,6 +1667,8 @@ const Admin = () => {
         // Points table auto sync
         points_table_auto_sync_enabled: (siteSettingsForm as any).points_table_auto_sync_enabled || false,
         points_table_sync_time: (siteSettingsForm as any).points_table_sync_time || '03:00',
+        // Playing XI auto sync source
+        playing_xi_auto_sync_source: (siteSettingsForm as any).playing_xi_auto_sync_source || 'api_cricket',
       } as any);
       toast({ title: "Site settings updated successfully" });
     } catch (error: any) {
