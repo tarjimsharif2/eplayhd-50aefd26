@@ -4489,6 +4489,25 @@ const Admin = () => {
                     />
                   </div>
 
+                  <div className="space-y-2">
+                    <Label>Playing XI Auto-Sync Source</Label>
+                    <Select
+                      value={(siteSettingsForm as any).playing_xi_auto_sync_source || 'api_cricket'}
+                      onValueChange={(value) => setSiteSettingsForm({ ...siteSettingsForm, playing_xi_auto_sync_source: value } as any)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="api_cricket">API Cricket (api-cricket.com)</SelectItem>
+                        <SelectItem value="espn">ESPN Cricinfo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      ম্যাচ শুরুর ২০ মিনিট আগে থেকে অটোমেটিক Playing XI ফেচ করবে। যতক্ষণ ১১ জন না পাবে ততক্ষণ ৫ মিনিট পর পর চেষ্টা করবে।
+                    </p>
+                  </div>
+
                   <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
                     <p className="text-xs text-muted-foreground">
                       <strong>Note:</strong> Enable live scores per-match using the "Enable API Score Sync" toggle in each match's edit dialog.
