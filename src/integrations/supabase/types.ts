@@ -1102,6 +1102,7 @@ export type Database = {
           match_page_ad_positions: Json | null
           multiple_ad_codes: Json | null
           og_image_url: string | null
+          playing_xi_auto_sync_source: string
           points_table_auto_sync_enabled: boolean | null
           points_table_sync_time: string | null
           popup_ad_code: string | null
@@ -1171,6 +1172,7 @@ export type Database = {
           match_page_ad_positions?: Json | null
           multiple_ad_codes?: Json | null
           og_image_url?: string | null
+          playing_xi_auto_sync_source?: string
           points_table_auto_sync_enabled?: boolean | null
           points_table_sync_time?: string | null
           popup_ad_code?: string | null
@@ -1240,6 +1242,7 @@ export type Database = {
           match_page_ad_positions?: Json | null
           multiple_ad_codes?: Json | null
           og_image_url?: string | null
+          playing_xi_auto_sync_source?: string
           points_table_auto_sync_enabled?: boolean | null
           points_table_sync_time?: string | null
           popup_ad_code?: string | null
