@@ -695,7 +695,27 @@ Deno.serve(async (req) => {
         console.log(`[syncLineups] Team A maps to API home team`);
       }
 
-      // Delete existing players for this match
+      const getPlayerName = (player: any) => player.player || player.player_name || 'Unknown';
+      const normalizePlayerName = (player: any) => normalizeTeamName(getPlayerName(player));
+      const uniquePlayers = (players: any[]) => {
+        const seen = new Set<string>();
+        return players.filter((player) => {
+          const key = normalizePlayerName(player);
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      };
+
+      const homeSubs = lineups.home_team?.substitutes || [];
+      const awaySubs = lineups.away_team?.substitutes || [];
+      const subsForA = (teamAMatchesAway && !teamAMatchesHome) ? awaySubs : homeSubs;
+      const subsForB = (teamAMatchesAway && !teamAMatchesHome) ? homeSubs : awaySubs;
+
+      const normalizedLineupForA = uniquePlayers(lineupForA);
+      const normalizedLineupForB = uniquePlayers(lineupForB);
+      const confirmedXIAvailable = normalizedLineupForA.length === 11 && normalizedLineupForB.length === 11;
+
       const { error: deleteError } = await supabase
         .from('match_playing_xi')
         .delete()
@@ -705,42 +725,49 @@ Deno.serve(async (req) => {
         console.error('Error deleting existing players:', deleteError);
       }
 
-      // Build player records - cap Playing XI at 11, rest go to bench
       const playersToInsert: any[] = [];
 
-      // Also get substitutes
-      const homeSubs = lineups.home_team?.substitutes || [];
-      const awaySubs = lineups.away_team?.substitutes || [];
-      const subsForA = (teamAMatchesAway && !teamAMatchesHome) ? awaySubs : homeSubs;
-      const subsForB = (teamAMatchesAway && !teamAMatchesHome) ? homeSubs : awaySubs;
-
-      // Helper: add players with 11-cap for Playing XI
       const addTeamPlayers = (lineup: any[], subs: any[], teamId: string) => {
-        // First 11 from starting_lineups = Playing XI, rest = bench
-        const xi = lineup.slice(0, 11);
-        const overflowToBench = lineup.slice(11);
-        
-        xi.forEach((p: any, idx: number) => {
-          playersToInsert.push({
-            match_id: matchId,
-            team_id: teamId,
-            player_name: p.player || p.player_name || 'Unknown',
-            player_role: p.player_type || null,
-            is_captain: p.player_captain === '1' || false,
-            is_bench: false,
-            batting_order: idx + 1,
-            is_vice_captain: false,
-            is_wicket_keeper: (p.player_type || '').toLowerCase().includes('keeper') || false,
+        const uniqueLineup = uniquePlayers(lineup);
+        const lineupNames = new Set(uniqueLineup.map(normalizePlayerName));
+        const uniqueBench = uniquePlayers(subs).filter((player) => !lineupNames.has(normalizePlayerName(player)));
+
+        if (confirmedXIAvailable) {
+          uniqueLineup.forEach((p: any, idx: number) => {
+            playersToInsert.push({
+              match_id: matchId,
+              team_id: teamId,
+              player_name: getPlayerName(p),
+              player_role: p.player_type || null,
+              is_captain: p.player_captain === '1' || false,
+              is_bench: false,
+              batting_order: idx + 1,
+              is_vice_captain: false,
+              is_wicket_keeper: (p.player_type || '').toLowerCase().includes('keeper') || false,
+            });
           });
-        });
-        
-        // Combine overflow + subs as bench
-        const allBench = [...overflowToBench, ...subs];
-        allBench.forEach((p: any, idx: number) => {
+
+          uniqueBench.forEach((p: any, idx: number) => {
+            playersToInsert.push({
+              match_id: matchId,
+              team_id: teamId,
+              player_name: getPlayerName(p),
+              player_role: p.player_type || null,
+              is_captain: false,
+              is_bench: true,
+              batting_order: idx + 1,
+              is_vice_captain: false,
+              is_wicket_keeper: (p.player_type || '').toLowerCase().includes('keeper') || false,
+            });
+          });
+          return;
+        }
+
+        [...uniqueLineup, ...uniqueBench].forEach((p: any, idx: number) => {
           playersToInsert.push({
             match_id: matchId,
             team_id: teamId,
-            player_name: p.player || p.player_name || 'Unknown',
+            player_name: getPlayerName(p),
             player_role: p.player_type || null,
             is_captain: false,
             is_bench: true,
@@ -751,8 +778,8 @@ Deno.serve(async (req) => {
         });
       };
 
-      addTeamPlayers(lineupForA, subsForA, teamAId);
-      addTeamPlayers(lineupForB, subsForB, teamBId);
+      addTeamPlayers(normalizedLineupForA, subsForA, teamAId);
+      addTeamPlayers(normalizedLineupForB, subsForB, teamBId);
 
       if (playersToInsert.length > 0) {
         const { error: insertError } = await supabase
@@ -768,14 +795,17 @@ Deno.serve(async (req) => {
         }
       }
 
-      console.log(`[syncLineups] Saved ${playersToInsert.length} players (TeamA: ${lineupForA.length}+${subsForA.length} subs, TeamB: ${lineupForB.length}+${subsForB.length} subs)`);
+      console.log(`[syncLineups] Saved ${playersToInsert.length} players (confirmedXI=${confirmedXIAvailable}, TeamA lineup=${normalizedLineupForA.length}, TeamB lineup=${normalizedLineupForB.length})`);
 
       return new Response(
         JSON.stringify({
           success: true,
-          message: `Synced ${playersToInsert.length} players from API Cricket lineups`,
-          teamACount: lineupForA.length,
-          teamBCount: lineupForB.length,
+          message: confirmedXIAvailable
+            ? `Synced ${playersToInsert.length} players from API Cricket lineups`
+            : 'Only squad data is available right now, so players were saved to bench and auto-retry will continue until confirmed XI arrives',
+          confirmedXI: confirmedXIAvailable,
+          teamACount: normalizedLineupForA.length,
+          teamBCount: normalizedLineupForB.length,
           teamASubsCount: subsForA.length,
           teamBSubsCount: subsForB.length,
         }),

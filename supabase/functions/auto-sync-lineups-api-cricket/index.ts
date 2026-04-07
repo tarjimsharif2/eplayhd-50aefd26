@@ -363,40 +363,73 @@ Deno.serve(async (req) => {
           lineupForB = homeLineup;
         }
 
-        // Delete existing players
-        await supabase.from('match_playing_xi').delete().eq('match_id', match.id);
-
-        // Build player records - cap Playing XI at 11
-        const playersToInsert: any[] = [];
+        const getPlayerName = (player: any) => player.player || player.player_name || 'Unknown';
+        const normalizePlayerName = (player: any) => normalizeTeamName(getPlayerName(player));
+        const uniquePlayers = (players: any[]) => {
+          const seen = new Set<string>();
+          return players.filter((player) => {
+            const key = normalizePlayerName(player);
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+        };
 
         const homeSubs = lineups.home_team?.substitutes || [];
         const awaySubs = lineups.away_team?.substitutes || [];
         const subsForA = (teamAMatchesAway && !teamAMatchesHome) ? awaySubs : homeSubs;
         const subsForB = (teamAMatchesAway && !teamAMatchesHome) ? homeSubs : awaySubs;
 
+        const normalizedLineupForA = uniquePlayers(lineupForA);
+        const normalizedLineupForB = uniquePlayers(lineupForB);
+        const confirmedXIAvailable = normalizedLineupForA.length === 11 && normalizedLineupForB.length === 11;
+
+        // Delete existing players
+        await supabase.from('match_playing_xi').delete().eq('match_id', match.id);
+
+        const playersToInsert: any[] = [];
+
         const addTeamPlayers = (lineup: any[], subs: any[], teamId: string) => {
-          const xi = lineup.slice(0, 11);
-          const overflowToBench = lineup.slice(11);
-          
-          xi.forEach((p: any, idx: number) => {
-            playersToInsert.push({
-              match_id: match.id,
-              team_id: teamId,
-              player_name: p.player || p.player_name || 'Unknown',
-              player_role: p.player_type || null,
-              is_captain: p.player_captain === '1' || false,
-              is_bench: false,
-              batting_order: idx + 1,
-              is_vice_captain: false,
-              is_wicket_keeper: (p.player_type || '').toLowerCase().includes('keeper') || false,
+          const uniqueLineup = uniquePlayers(lineup);
+          const lineupNames = new Set(uniqueLineup.map(normalizePlayerName));
+          const uniqueBench = uniquePlayers(subs).filter((player) => !lineupNames.has(normalizePlayerName(player)));
+
+          if (confirmedXIAvailable) {
+            uniqueLineup.forEach((p: any, idx: number) => {
+              playersToInsert.push({
+                match_id: match.id,
+                team_id: teamId,
+                player_name: getPlayerName(p),
+                player_role: p.player_type || null,
+                is_captain: p.player_captain === '1' || false,
+                is_bench: false,
+                batting_order: idx + 1,
+                is_vice_captain: false,
+                is_wicket_keeper: (p.player_type || '').toLowerCase().includes('keeper') || false,
+              });
             });
-          });
-          
-          [...overflowToBench, ...subs].forEach((p: any, idx: number) => {
+
+            uniqueBench.forEach((p: any, idx: number) => {
+              playersToInsert.push({
+                match_id: match.id,
+                team_id: teamId,
+                player_name: getPlayerName(p),
+                player_role: p.player_type || null,
+                is_captain: false,
+                is_bench: true,
+                batting_order: idx + 1,
+                is_vice_captain: false,
+                is_wicket_keeper: (p.player_type || '').toLowerCase().includes('keeper') || false,
+              });
+            });
+            return;
+          }
+
+          [...uniqueLineup, ...uniqueBench].forEach((p: any, idx: number) => {
             playersToInsert.push({
               match_id: match.id,
               team_id: teamId,
-              player_name: p.player || p.player_name || 'Unknown',
+              player_name: getPlayerName(p),
               player_role: p.player_type || null,
               is_captain: false,
               is_bench: true,
@@ -407,8 +440,8 @@ Deno.serve(async (req) => {
           });
         };
 
-        addTeamPlayers(lineupForA, subsForA, teamAId);
-        addTeamPlayers(lineupForB, subsForB, teamBId);
+        addTeamPlayers(normalizedLineupForA, subsForA, teamAId);
+        addTeamPlayers(normalizedLineupForB, subsForB, teamBId);
 
         if (playersToInsert.length > 0) {
           const { error: insertError } = await supabase
@@ -422,9 +455,20 @@ Deno.serve(async (req) => {
           }
         }
 
-        synced++;
-        console.log(`[auto-sync-lineups] ✅ Synced ${playersToInsert.length} players for ${teamAName} vs ${teamBName}`);
-        results.push({ matchId: match.id, status: 'synced', playerCount: playersToInsert.length });
+        if (confirmedXIAvailable) {
+          synced++;
+          console.log(`[auto-sync-lineups] ✅ Confirmed XI synced for ${teamAName} vs ${teamBName}`);
+          results.push({ matchId: match.id, status: 'synced', playerCount: playersToInsert.length });
+        } else {
+          console.log(`[auto-sync-lineups] Squad only for ${teamAName} vs ${teamBName}; saved to bench and will retry`);
+          results.push({
+            matchId: match.id,
+            status: 'waiting_for_confirmed_xi',
+            playerCount: playersToInsert.length,
+            teamALineupCount: normalizedLineupForA.length,
+            teamBLineupCount: normalizedLineupForB.length,
+          });
+        }
 
       } catch (matchError) {
         console.error(`[auto-sync-lineups] Error processing match ${match.id}:`, matchError);

@@ -90,6 +90,7 @@ export interface SiteSettings {
   maintenance_end_time: string | null;
   maintenance_contact_email: string | null;
   maintenance_social_message: string | null;
+  playing_xi_auto_sync_source?: 'api_cricket' | 'espn' | null;
 }
 
 // Admin-only hook for full site settings (requires admin role)
