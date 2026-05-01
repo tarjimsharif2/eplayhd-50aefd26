@@ -621,6 +621,7 @@ export type Database = {
           player_image: string | null
           player_name: string
           player_role: string | null
+          sofascore_player_id: string | null
           team_id: string
           updated_at: string
         }
@@ -637,6 +638,7 @@ export type Database = {
           player_image?: string | null
           player_name: string
           player_role?: string | null
+          sofascore_player_id?: string | null
           team_id: string
           updated_at?: string
         }
@@ -653,6 +655,7 @@ export type Database = {
           player_image?: string | null
           player_name?: string
           player_role?: string | null
+          sofascore_player_id?: string | null
           team_id?: string
           updated_at?: string
         }
@@ -761,6 +764,7 @@ export type Database = {
           seo_title: string | null
           show_playing_xi: boolean | null
           slug: string | null
+          sofascore_event_id: string | null
           sport_id: string | null
           status: string
           stumps_time: string | null
@@ -812,6 +816,7 @@ export type Database = {
           seo_title?: string | null
           show_playing_xi?: boolean | null
           slug?: string | null
+          sofascore_event_id?: string | null
           sport_id?: string | null
           status?: string
           stumps_time?: string | null
@@ -863,6 +868,7 @@ export type Database = {
           seo_title?: string | null
           show_playing_xi?: boolean | null
           slug?: string | null
+          sofascore_event_id?: string | null
           sport_id?: string | null
           status?: string
           stumps_time?: string | null
