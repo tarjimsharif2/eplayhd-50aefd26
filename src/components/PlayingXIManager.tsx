@@ -1530,6 +1530,13 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
                 <CloudDownload className="w-4 h-4 mr-2" />
                 API Cricket Lineups (api-cricket.com)
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleFetchSquad('sofascore', players && players.length > 0)}
+                disabled={fetchingSquad}
+              >
+                <CloudDownload className="w-4 h-4 mr-2" />
+                Sofascore Lineups + Images
+              </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => handleFetchSquad('cricapi', players && players.length > 0)}
                 disabled={fetchingSquad}
