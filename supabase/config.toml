@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.sync-cricapi-playing-xi]
 verify_jwt = false
+
+[functions.sync-sofascore-playing-xi]
+verify_jwt = false
