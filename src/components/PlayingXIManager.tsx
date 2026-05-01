@@ -769,7 +769,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
   };
 
   // Fetch squad from RapidAPI (Cricbuzz)
-  const handleFetchSquad = async (source: 'cricbuzz' | 'espn' | 'scrape' | 'rapidapi' | 'cricapi' | 'cricapi_xi' | 'api_cricket', forceRefresh = false) => {
+  const handleFetchSquad = async (source: 'cricbuzz' | 'espn' | 'scrape' | 'rapidapi' | 'cricapi' | 'cricapi_xi' | 'api_cricket' | 'sofascore', forceRefresh = false) => {
     setFetchingSquad(true);
 
     try {
@@ -783,6 +783,35 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
         if (deleteError) {
           throw new Error('Failed to clear existing players');
         }
+      }
+
+      // Handle Sofascore lineups sync
+      if (source === 'sofascore') {
+        toast({ title: "Syncing Lineups...", description: "Fetching from Sofascore..." });
+        const response = await supabase.functions.invoke('sync-sofascore-playing-xi', {
+          body: {
+            matchId,
+            teamAId: teamA.id,
+            teamBId: teamB.id,
+            teamAName: teamA.name,
+            teamBName: teamB.name,
+          },
+        });
+
+        if (response.error) {
+          throw new Error(response.error.message || 'Failed to sync from Sofascore');
+        }
+        const result = response.data;
+        if (!result?.success) {
+          throw new Error(result?.error || 'Failed to sync from Sofascore');
+        }
+        toast({
+          title: result.confirmedXI ? "✅ Confirmed XI Synced!" : "Squad Fetched",
+          description: result.message || `Synced ${result.playersAdded} players from Sofascore`,
+        });
+        queryClient.invalidateQueries({ queryKey: ['playing_xi', matchId] });
+        setFetchingSquad(false);
+        return;
       }
 
       // Handle API Cricket lineups sync separately
@@ -1500,6 +1529,13 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
               >
                 <CloudDownload className="w-4 h-4 mr-2" />
                 API Cricket Lineups (api-cricket.com)
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleFetchSquad('sofascore', players && players.length > 0)}
+                disabled={fetchingSquad}
+              >
+                <CloudDownload className="w-4 h-4 mr-2" />
+                Sofascore Lineups + Images
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => handleFetchSquad('cricapi', players && players.length > 0)}
