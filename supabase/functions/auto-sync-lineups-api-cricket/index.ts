@@ -25,8 +25,12 @@ async function fetchWithRetry(url: string, maxRetries = 2): Promise<Response> {
 const normalizeTeamName = (name: string) =>
   name?.toLowerCase().replace(/[^a-z0-9]/g, '') || '';
 
-// ESPN auto-sync handler
-async function handleEspnAutoSync(supabase: any, corsHeaders: Record<string, string>): Promise<Response> {
+// Generic delegator for ESPN/Sofascore auto-sync
+async function handleDelegatedAutoSync(
+  supabase: any,
+  corsHeaders: Record<string, string>,
+  source: 'espn' | 'sofascore'
+): Promise<Response> {
   const now = new Date();
 
   const { data: upcomingMatches, error: matchesError } = await supabase
@@ -44,7 +48,7 @@ async function handleEspnAutoSync(supabase: any, corsHeaders: Record<string, str
 
   if (matchesError || !upcomingMatches?.length) {
     return new Response(
-      JSON.stringify({ success: true, message: 'No matches to sync via ESPN', synced: 0 }),
+      JSON.stringify({ success: true, message: `No matches to sync via ${source}`, synced: 0 }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
@@ -80,7 +84,7 @@ async function handleEspnAutoSync(supabase: any, corsHeaders: Record<string, str
 
   if (eligibleMatches.length === 0) {
     return new Response(
-      JSON.stringify({ success: true, message: 'No ESPN matches need lineup sync', synced: 0 }),
+      JSON.stringify({ success: true, message: `No ${source} matches need lineup sync`, synced: 0 }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
@@ -95,39 +99,49 @@ async function handleEspnAutoSync(supabase: any, corsHeaders: Record<string, str
       const teamAShortName = (match.team_a as any)?.short_name || '';
       const teamBShortName = (match.team_b as any)?.short_name || '';
 
-      console.log(`[auto-sync-lineups-espn] Syncing: ${teamAName} vs ${teamBName}`);
+      console.log(`[auto-sync-lineups-${source}] Syncing: ${teamAName} vs ${teamBName}`);
 
-      // Call sync-espn-playing-xi edge function internally
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      
-      const espnResponse = await fetch(`${supabaseUrl}/functions/v1/sync-espn-playing-xi`, {
+
+      const fnName = source === 'espn' ? 'sync-espn-playing-xi' : 'sync-sofascore-playing-xi';
+      const payload = source === 'espn'
+        ? {
+            matchId: match.id,
+            teamAId: match.team_a_id,
+            teamBId: match.team_b_id,
+            teamAName,
+            teamAShortName,
+            teamBName,
+            teamBShortName,
+          }
+        : {
+            matchId: match.id,
+            teamAId: match.team_a_id,
+            teamBId: match.team_b_id,
+            teamAName,
+            teamBName,
+          };
+
+      const resp = await fetch(`${supabaseUrl}/functions/v1/${fnName}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${supabaseServiceKey}`,
         },
-        body: JSON.stringify({
-          matchId: match.id,
-          teamAId: match.team_a_id,
-          teamBId: match.team_b_id,
-          teamAName,
-          teamAShortName,
-          teamBName,
-          teamBShortName,
-        }),
+        body: JSON.stringify(payload),
       });
 
-      if (espnResponse.ok) {
-        const espnResult = await espnResponse.json();
-        if (espnResult.success && espnResult.playersAdded > 0) {
+      if (resp.ok) {
+        const result = await resp.json();
+        if (result.success && result.playersAdded > 0) {
           synced++;
-          results.push({ matchId: match.id, status: 'synced', players: espnResult.playersAdded });
+          results.push({ matchId: match.id, status: 'synced', players: result.playersAdded, confirmedXI: result.confirmedXI });
         } else {
-          results.push({ matchId: match.id, status: espnResult.error || 'no_data' });
+          results.push({ matchId: match.id, status: result.error || 'no_data' });
         }
       } else {
-        results.push({ matchId: match.id, status: 'espn_error' });
+        results.push({ matchId: match.id, status: `${source}_error` });
       }
     } catch (err) {
       results.push({ matchId: match.id, status: 'error', error: String(err) });
@@ -135,7 +149,7 @@ async function handleEspnAutoSync(supabase: any, corsHeaders: Record<string, str
   }
 
   return new Response(
-    JSON.stringify({ success: true, synced, total: eligibleMatches.length, source: 'espn', results }),
+    JSON.stringify({ success: true, synced, total: eligibleMatches.length, source, results }),
     { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
   );
 }
@@ -162,9 +176,9 @@ Deno.serve(async (req) => {
     const syncSource = (settings as any)?.playing_xi_auto_sync_source || 'api_cricket';
     console.log(`[auto-sync-lineups] Source: ${syncSource}`);
 
-    // If source is ESPN, delegate to ESPN sync logic
-    if (syncSource === 'espn') {
-      return await handleEspnAutoSync(supabase, corsHeaders);
+    // If source is ESPN or Sofascore, delegate
+    if (syncSource === 'espn' || syncSource === 'sofascore') {
+      return await handleDelegatedAutoSync(supabase, corsHeaders, syncSource);
     }
 
     if (!settings?.api_cricket_enabled || !settings?.api_cricket_key) {
