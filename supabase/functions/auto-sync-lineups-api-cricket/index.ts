@@ -467,6 +467,20 @@ Deno.serve(async (req) => {
             results.push({ matchId: match.id, status: 'insert_error' });
             continue;
           }
+
+          // Enrich player images from Sofascore (name-based match)
+          try {
+            await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/enrich-player-images-sofascore`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              },
+              body: JSON.stringify({ matchId: match.id }),
+            });
+          } catch (e) {
+            console.warn('[auto-sync-lineups] image enrich failed:', e);
+          }
         }
 
         if (confirmedXIAvailable) {
