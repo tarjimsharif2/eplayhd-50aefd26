@@ -999,6 +999,9 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
         description: `${result.totalPlayers || 0} players added (${result.teamA?.length || 0} + ${result.teamB?.length || 0})`
       });
 
+      // Always enrich player images from Sofascore (name-based)
+      enrichImagesFromSofascore();
+
     } catch (err: any) {
       console.error('Fetch squad error:', err);
       toast({ title: "Error", description: err.message || 'Failed to fetch squad', variant: "destructive" });
