@@ -772,6 +772,18 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
   const handleFetchSquad = async (source: 'cricbuzz' | 'espn' | 'scrape' | 'rapidapi' | 'cricapi' | 'cricapi_xi' | 'api_cricket' | 'sofascore', forceRefresh = false) => {
     setFetchingSquad(true);
 
+    // Always enrich player images from Sofascore (name-matched), regardless of lineup source
+    const enrichImagesFromSofascore = async () => {
+      try {
+        await supabase.functions.invoke('enrich-player-images-sofascore', {
+          body: { matchId },
+        });
+        queryClient.invalidateQueries({ queryKey: ['playing_xi', matchId] });
+      } catch (e) {
+        console.warn('[PlayingXI] Sofascore image enrich failed:', e);
+      }
+    };
+
     try {
       // If force refresh, clear existing players first
       if (forceRefresh && players && players.length > 0) {
@@ -811,6 +823,8 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
         });
         queryClient.invalidateQueries({ queryKey: ['playing_xi', matchId] });
         setFetchingSquad(false);
+        // Sofascore source already adds images; still enrich any missing
+        enrichImagesFromSofascore();
         return;
       }
 
@@ -843,6 +857,8 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
         });
         queryClient.invalidateQueries({ queryKey: ['playing_xi', matchId] });
         setFetchingSquad(false);
+        // Fetch player images from Sofascore by name match
+        enrichImagesFromSofascore();
         return;
       }
 
