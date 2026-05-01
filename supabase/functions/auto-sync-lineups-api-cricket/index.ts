@@ -137,6 +137,19 @@ async function handleDelegatedAutoSync(
         if (result.success && result.playersAdded > 0) {
           synced++;
           results.push({ matchId: match.id, status: 'synced', players: result.playersAdded, confirmedXI: result.confirmedXI });
+          // Enrich images from Sofascore (skips already-tagged players)
+          try {
+            await fetch(`${supabaseUrl}/functions/v1/enrich-player-images-sofascore`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseServiceKey}`,
+              },
+              body: JSON.stringify({ matchId: match.id }),
+            });
+          } catch (e) {
+            console.warn(`[auto-sync-lineups-${source}] image enrich failed:`, e);
+          }
         } else {
           results.push({ matchId: match.id, status: result.error || 'no_data' });
         }
@@ -466,6 +479,20 @@ Deno.serve(async (req) => {
             console.error(`[auto-sync-lineups] Insert error for ${match.id}:`, insertError);
             results.push({ matchId: match.id, status: 'insert_error' });
             continue;
+          }
+
+          // Enrich player images from Sofascore (name-based match)
+          try {
+            await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/enrich-player-images-sofascore`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              },
+              body: JSON.stringify({ matchId: match.id }),
+            });
+          } catch (e) {
+            console.warn('[auto-sync-lineups] image enrich failed:', e);
           }
         }
 
