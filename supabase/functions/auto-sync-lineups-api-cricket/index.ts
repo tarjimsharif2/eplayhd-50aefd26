@@ -153,6 +153,19 @@ async function handleDelegatedAutoSync(
           } catch (e) {
             console.warn(`[auto-sync-lineups-${source}] image enrich failed:`, e);
           }
+          // Enrich bench + images from Crex (works regardless of XI source)
+          try {
+            await fetch(`${supabaseUrl}/functions/v1/enrich-from-crex`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseServiceKey}`,
+              },
+              body: JSON.stringify({ matchId: match.id }),
+            });
+          } catch (e) {
+            console.warn(`[auto-sync-lineups-${source}] crex enrich failed:`, e);
+          }
         } else {
           results.push({ matchId: match.id, status: result.error || 'no_data' });
         }
