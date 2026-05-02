@@ -1586,6 +1586,13 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
                 <CloudDownload className="w-4 h-4 mr-2" />
                 Sofascore Lineups + Images
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleFetchSquad('crex', players && players.length > 0)}
+                disabled={fetchingSquad}
+              >
+                <CloudDownload className="w-4 h-4 mr-2" />
+                Crex.live (Squad + Bench + Images)
+              </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => handleFetchSquad('cricapi', players && players.length > 0)}
                 disabled={fetchingSquad}
