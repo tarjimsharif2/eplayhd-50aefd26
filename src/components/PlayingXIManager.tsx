@@ -784,6 +784,18 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
       }
     };
 
+    // Enrich bench + player images from Crex (regardless of XI source)
+    const enrichFromCrex = async () => {
+      try {
+        await supabase.functions.invoke('enrich-from-crex', {
+          body: { matchId },
+        });
+        queryClient.invalidateQueries({ queryKey: ['playing_xi', matchId] });
+      } catch (e) {
+        console.warn('[PlayingXI] Crex enrich failed:', e);
+      }
+    };
+
     try {
       // If force refresh, clear existing players first
       if (forceRefresh && players && players.length > 0) {
@@ -825,6 +837,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
         setFetchingSquad(false);
         // Sofascore source already adds images; still enrich any missing
         enrichImagesFromSofascore();
+        enrichFromCrex();
         return;
       }
 
@@ -855,6 +868,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
         setFetchingSquad(false);
         // Crex provides cricketvectors images; still try Sofascore enrich for any missing
         enrichImagesFromSofascore();
+        enrichFromCrex();
         return;
       }
 
@@ -889,6 +903,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
         setFetchingSquad(false);
         // Fetch player images from Sofascore by name match
         enrichImagesFromSofascore();
+        enrichFromCrex();
         return;
       }
 
@@ -1031,6 +1046,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
 
       // Always enrich player images from Sofascore (name-based)
       enrichImagesFromSofascore();
+      enrichFromCrex();
 
     } catch (err: any) {
       console.error('Fetch squad error:', err);
