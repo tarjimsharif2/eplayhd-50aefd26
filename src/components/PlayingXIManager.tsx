@@ -837,7 +837,6 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
         setFetchingSquad(false);
         // Sofascore source already adds images; still enrich any missing
         enrichImagesFromSofascore();
-      enrichFromCrex();
         enrichFromCrex();
         return;
       }
@@ -869,7 +868,6 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
         setFetchingSquad(false);
         // Crex provides cricketvectors images; still try Sofascore enrich for any missing
         enrichImagesFromSofascore();
-      enrichFromCrex();
         enrichFromCrex();
         return;
       }
@@ -905,7 +903,6 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
         setFetchingSquad(false);
         // Fetch player images from Sofascore by name match
         enrichImagesFromSofascore();
-      enrichFromCrex();
         enrichFromCrex();
         return;
       }
@@ -1049,7 +1046,6 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
 
       // Always enrich player images from Sofascore (name-based)
       enrichImagesFromSofascore();
-      enrichFromCrex();
 
     } catch (err: any) {
       console.error('Fetch squad error:', err);
