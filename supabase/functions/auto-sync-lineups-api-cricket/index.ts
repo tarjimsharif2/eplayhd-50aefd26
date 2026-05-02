@@ -29,7 +29,7 @@ const normalizeTeamName = (name: string) =>
 async function handleDelegatedAutoSync(
   supabase: any,
   corsHeaders: Record<string, string>,
-  source: 'espn' | 'sofascore'
+  source: 'espn' | 'sofascore' | 'crex'
 ): Promise<Response> {
   const now = new Date();
 
@@ -104,7 +104,10 @@ async function handleDelegatedAutoSync(
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-      const fnName = source === 'espn' ? 'sync-espn-playing-xi' : 'sync-sofascore-playing-xi';
+      const fnName =
+        source === 'espn' ? 'sync-espn-playing-xi'
+        : source === 'sofascore' ? 'sync-sofascore-playing-xi'
+        : 'sync-crex-playing-xi';
       const payload = source === 'espn'
         ? {
             matchId: match.id,
@@ -189,8 +192,8 @@ Deno.serve(async (req) => {
     const syncSource = (settings as any)?.playing_xi_auto_sync_source || 'api_cricket';
     console.log(`[auto-sync-lineups] Source: ${syncSource}`);
 
-    // If source is ESPN or Sofascore, delegate
-    if (syncSource === 'espn' || syncSource === 'sofascore') {
+    // If source is ESPN, Sofascore, or Crex, delegate
+    if (syncSource === 'espn' || syncSource === 'sofascore' || syncSource === 'crex') {
       return await handleDelegatedAutoSync(supabase, corsHeaders, syncSource);
     }
 

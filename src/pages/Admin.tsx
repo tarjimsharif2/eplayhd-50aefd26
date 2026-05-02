@@ -4502,6 +4502,7 @@ const Admin = () => {
                         <SelectItem value="api_cricket">API Cricket (api-cricket.com)</SelectItem>
                         <SelectItem value="espn">ESPN Cricinfo</SelectItem>
                         <SelectItem value="sofascore">Sofascore</SelectItem>
+                        <SelectItem value="crex">Crex.live (Squad + Bench + Images)</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">

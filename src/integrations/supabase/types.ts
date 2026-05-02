@@ -730,6 +730,7 @@ export type Database = {
           auto_match_result_enabled: boolean | null
           auto_sync_enabled: boolean | null
           created_at: string
+          crex_match_fkey: string | null
           cricapi_match_id: string | null
           cricbuzz_match_id: string | null
           day_start_time: string | null
@@ -782,6 +783,7 @@ export type Database = {
           auto_match_result_enabled?: boolean | null
           auto_sync_enabled?: boolean | null
           created_at?: string
+          crex_match_fkey?: string | null
           cricapi_match_id?: string | null
           cricbuzz_match_id?: string | null
           day_start_time?: string | null
@@ -834,6 +836,7 @@ export type Database = {
           auto_match_result_enabled?: boolean | null
           auto_sync_enabled?: boolean | null
           created_at?: string
+          crex_match_fkey?: string | null
           cricapi_match_id?: string | null
           cricbuzz_match_id?: string | null
           day_start_time?: string | null

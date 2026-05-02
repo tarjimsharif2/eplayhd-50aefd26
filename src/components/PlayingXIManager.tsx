@@ -769,7 +769,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
   };
 
   // Fetch squad from RapidAPI (Cricbuzz)
-  const handleFetchSquad = async (source: 'cricbuzz' | 'espn' | 'scrape' | 'rapidapi' | 'cricapi' | 'cricapi_xi' | 'api_cricket' | 'sofascore', forceRefresh = false) => {
+  const handleFetchSquad = async (source: 'cricbuzz' | 'espn' | 'scrape' | 'rapidapi' | 'cricapi' | 'cricapi_xi' | 'api_cricket' | 'sofascore' | 'crex', forceRefresh = false) => {
     setFetchingSquad(true);
 
     // Always enrich player images from Sofascore (name-matched), regardless of lineup source
@@ -824,6 +824,36 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
         queryClient.invalidateQueries({ queryKey: ['playing_xi', matchId] });
         setFetchingSquad(false);
         // Sofascore source already adds images; still enrich any missing
+        enrichImagesFromSofascore();
+        return;
+      }
+
+      // Handle Crex.live squads sync (Playing XI + Bench + Player Images)
+      if (source === 'crex') {
+        toast({ title: "Syncing Squads...", description: "Fetching from Crex.live..." });
+        const response = await supabase.functions.invoke('sync-crex-playing-xi', {
+          body: {
+            matchId,
+            teamAId: teamA.id,
+            teamBId: teamB.id,
+            teamAName: teamA.name,
+            teamBName: teamB.name,
+          },
+        });
+        if (response.error) {
+          throw new Error(response.error.message || 'Failed to sync from Crex');
+        }
+        const result = response.data;
+        if (!result?.success) {
+          throw new Error(result?.error || 'Failed to sync from Crex');
+        }
+        toast({
+          title: result.confirmedXI ? "✅ Confirmed XI Synced!" : "Squad Fetched",
+          description: result.message || `Synced ${result.playersAdded} players from Crex`,
+        });
+        queryClient.invalidateQueries({ queryKey: ['playing_xi', matchId] });
+        setFetchingSquad(false);
+        // Crex provides cricketvectors images; still try Sofascore enrich for any missing
         enrichImagesFromSofascore();
         return;
       }
@@ -1555,6 +1585,13 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
               >
                 <CloudDownload className="w-4 h-4 mr-2" />
                 Sofascore Lineups + Images
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleFetchSquad('crex', players && players.length > 0)}
+                disabled={fetchingSquad}
+              >
+                <CloudDownload className="w-4 h-4 mr-2" />
+                Crex.live (Squad + Bench + Images)
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => handleFetchSquad('cricapi', players && players.length > 0)}
