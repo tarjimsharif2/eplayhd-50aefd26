@@ -1046,6 +1046,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
 
       // Always enrich player images from Sofascore (name-based)
       enrichImagesFromSofascore();
+      enrichFromCrex();
 
     } catch (err: any) {
       console.error('Fetch squad error:', err);
