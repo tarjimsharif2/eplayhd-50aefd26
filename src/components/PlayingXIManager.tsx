@@ -784,6 +784,18 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
       }
     };
 
+    // Enrich bench + player images from Crex (regardless of XI source)
+    const enrichFromCrex = async () => {
+      try {
+        await supabase.functions.invoke('enrich-from-crex', {
+          body: { matchId },
+        });
+        queryClient.invalidateQueries({ queryKey: ['playing_xi', matchId] });
+      } catch (e) {
+        console.warn('[PlayingXI] Crex enrich failed:', e);
+      }
+    };
+
     try {
       // If force refresh, clear existing players first
       if (forceRefresh && players && players.length > 0) {
