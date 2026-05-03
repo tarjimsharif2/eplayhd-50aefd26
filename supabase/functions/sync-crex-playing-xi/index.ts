@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const CREX_HEADERS = {
+const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
   'Accept-Language': 'en-US,en;q=0.9',
@@ -13,65 +13,92 @@ const CREX_HEADERS = {
 };
 
 const PLAYER_IMAGE_URL = (id: string) => `https://cricketvectors.akamaized.net/players/org/${id}.png`;
-const TEAM_LOGO_URL = (id: string) => `https://cricketvectors.akamaized.net/Teams/${id}.png`;
-
 const normalize = (s: string) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
-async function fetchHtml(url: string): Promise<string | null> {
+async function fetchText(url: string): Promise<string | null> {
   try {
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 12000);
-    const res = await fetch(url, { headers: CREX_HEADERS, signal: controller.signal });
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), 15000);
+    const r = await fetch(url, { headers: HEADERS, signal: c.signal, redirect: 'follow' });
     clearTimeout(t);
-    if (!res.ok) {
-      console.warn(`[crex] ${url} -> ${res.status}`);
-      return null;
-    }
-    return await res.text();
-  } catch (e) {
-    console.warn(`[crex] fetch error`, e);
-    return null;
-  }
+    if (!r.ok) { console.warn(`[crex] ${url} -> ${r.status}`); return null; }
+    return await r.text();
+  } catch (e) { console.warn(`[crex] err ${url}`, e); return null; }
+}
+
+async function fetchJson(url: string): Promise<any | null> {
+  try {
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), 12000);
+    const r = await fetch(url, { headers: HEADERS, signal: c.signal });
+    clearTimeout(t);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
 }
 
 function parseAppRootState(html: string): any | null {
-  const m = html.match(/<script id="app-root-state" type="application\/json">(.*?)<\/script>/);
+  const m = html.match(/<script id="app-root-state"[^>]*>([\s\S]*?)<\/script>/);
   if (!m) return null;
-  try {
-    return JSON.parse(m[1].replace(/&q;/g, '"'));
-  } catch (e) {
-    console.warn('[crex] state parse failed', e);
-    return null;
-  }
+  try { return JSON.parse(m[1].replace(/&q;/g, '"').replace(/&a;/g, '&').replace(/&l;/g, '<').replace(/&g;/g, '>').replace(/&s;/g, "'")); }
+  catch (e) { console.warn('[crex] state parse failed', e); return null; }
 }
 
-/** Locate the Crex match fkey by scraping the global fixtures list and matching team names. */
+function extractPlayerNames(html: string): Map<string, string> {
+  // Match /player/<slug>-<ID>
+  const out = new Map<string, string>();
+  const re = /href="\/player\/([a-z0-9-]+)-([A-Z0-9]+)"/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const id = m[2];
+    if (!out.has(id)) {
+      const name = m[1].split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      out.set(id, name);
+    }
+  }
+  return out;
+}
+
+function parseTpTb(s: string): string[][] {
+  if (!s || !s.includes('/')) return [[], []];
+  const parts = s.split('/');
+  return [
+    parts[0].split('-').filter(Boolean).map(x => x.split('.')[0]),
+    parts[1].split('-').filter(Boolean).map(x => x.split('.')[0]),
+  ];
+}
+
+function rolePositionFromCode(rawRole: any): { position: string; isWk: boolean } {
+  const i = parseInt(String(rawRole), 10);
+  if (!isNaN(i) && String(rawRole).length < 3) {
+    if (i === 4 || i === 0) return { position: 'Wicket-keeper', isWk: true };
+    if (i === 1) return { position: 'Batsman', isWk: false };
+    if (i === 2) return { position: 'Bowler', isWk: false };
+    if (i === 3) return { position: 'All-rounder', isWk: false };
+  }
+  const r = String(rawRole || '').toLowerCase();
+  if (r.includes('wk') || r.includes('keeper')) return { position: 'Wicket-keeper', isWk: true };
+  if (r.includes('all')) return { position: 'All-rounder', isWk: false };
+  if (r.includes('bowl')) return { position: 'Bowler', isWk: false };
+  if (r.includes('bat')) return { position: 'Batsman', isWk: false };
+  return { position: '', isWk: false };
+}
+
 async function findMatchFkey(teamAName: string, teamBName: string): Promise<string | null> {
-  const html = await fetchHtml('https://crex.live/fixtures/match-list');
+  const html = await fetchText('https://crex.live/fixtures/match-list');
   if (!html) return null;
   const state = parseAppRootState(html);
   if (!state) return null;
 
   const fixturesKey = Object.keys(state).find(k => k.includes('getFixture'));
-  const mapKey = Object.keys(state).find(k => k.includes('getHomeMapDatadatewise'));
   if (!fixturesKey) return null;
-
   const fixtures: any[] = state[fixturesKey] || [];
-  const mapData: any = mapKey ? (state[mapKey]?.body || state[mapKey] || {}) : {};
-  const teamList: any[] = Array.isArray(mapData.t) ? mapData.t : Object.values(mapData.t || {});
-  const getTeamName = (key: string) => {
-    const t = teamList.find((x: any) => x.f_key === key);
-    return t ? (t.n || t.f || '') : '';
-  };
 
   const aN = normalize(teamAName);
   const bN = normalize(teamBName);
-
   for (const f of fixtures) {
-    const t1Key = f.team1fkey || f.t1f;
-    const t2Key = f.team2fkey || f.t2f;
-    const n1 = normalize(f.team1 || getTeamName(t1Key) || '');
-    const n2 = normalize(f.team2 || getTeamName(t2Key) || '');
+    const n1 = normalize(f.team1 || '');
+    const n2 = normalize(f.team2 || '');
     if (!n1 || !n2) continue;
     const ok =
       ((n1.includes(aN) || aN.includes(n1)) && (n2.includes(bN) || bN.includes(n2))) ||
@@ -84,124 +111,116 @@ async function findMatchFkey(teamAName: string, teamBName: string): Promise<stri
   return null;
 }
 
-function rolePositionFromCode(rawRole: any): { position: string; isWk: boolean } {
-  const roleIndex = parseInt(String(rawRole), 10);
-  let position = '';
-  let isWk = false;
-  if (!isNaN(roleIndex) && String(rawRole).length < 3) {
-    if (roleIndex === 4 || roleIndex === 0) { position = 'Wicket-keeper'; isWk = true; }
-    else if (roleIndex === 1) position = 'Batsman';
-    else if (roleIndex === 2) position = 'Bowler';
-    else if (roleIndex === 3) position = 'All-rounder';
-  } else {
-    const rs = String(rawRole || '').toLowerCase();
-    if (rs.includes('wk') || rs.includes('keeper')) { position = 'Wicket-keeper'; isWk = true; }
-    else if (rs.includes('all')) position = 'All-rounder';
-    else if (rs.includes('bowl')) position = 'Bowler';
-    else if (rs.includes('bat')) position = 'Batsman';
-    else position = String(rawRole || '');
-  }
-  return { position, isWk };
-}
+interface PlayerEntry { id: string; name: string; position: string; isWk: boolean; isCaptain: boolean; isBench: boolean; image: string; }
 
-/** Returns { home: { teamKey, players[] }, away: { teamKey, players[] } } or null. */
-async function fetchSquads(matchFkey: string): Promise<any | null> {
-  const html = await fetchHtml(`https://crex.live/cricket-live-score/match-${matchFkey}/match-details`);
-  if (!html) return null;
-  const state = parseAppRootState(html);
+async function fetchSquads(matchFkey: string): Promise<{ hasLineup: boolean; t1Flag: string; t2Flag: string; t1Players: PlayerEntry[]; t2Players: PlayerEntry[]; t1Name: string; t2Name: string } | null> {
+  const detailsUrl = `https://crex.live/cricket-live-score/match-${matchFkey}/match-details`;
+  const scorecardUrl = `https://crex.live/cricket-live-score/match-${matchFkey}/match-scorecard`;
+  const [detailsHtml, scoreHtml] = await Promise.all([fetchText(detailsUrl), fetchText(scorecardUrl)]);
+  if (!detailsHtml) return null;
+
+  const state = parseAppRootState(detailsHtml);
   if (!state) return null;
 
-  const matchInfoKey = Object.keys(state).find(k => k.includes('getHomeMapDatamatchinfo'));
+  // Try to fetch IV4 directly (more reliable) using fkey from state or arg
+  let iv4: any = null;
   const iv4Key = Object.keys(state).find(k => k.includes('getIV4'));
+  if (iv4Key) iv4 = state[iv4Key];
+  if (!iv4 || !iv4.tp) {
+    iv4 = await fetchJson(`https://api.goscorer.com/api/v3/getIV4?key=${matchFkey}`);
+  }
+  if (!iv4) return null;
+
+  // SV3 has team full names + flags
+  let sv3: any = null;
+  const sv3Key = Object.keys(state).find(k => k.includes('getSV3'));
+  if (sv3Key) sv3 = state[sv3Key];
+
+  // PreLive has ftp (player roles)
+  let preLive: any = null;
   const preLiveKey = Object.keys(state).find(k => k.includes('getPreLiveStats'));
+  if (preLiveKey) preLive = state[preLiveKey];
 
-  const matchInfo = matchInfoKey ? state[matchInfoKey] : null;
-  const iv4 = iv4Key ? state[iv4Key] : null;
-  const preLive = preLiveKey ? state[preLiveKey] : null;
-
-  let playerList: any[] = matchInfo?.p || matchInfo?.body?.p;
-  const teamList: any[] = matchInfo?.t || matchInfo?.body?.t || [];
-  if (!playerList && teamList.length) playerList = teamList.flatMap((t: any) => t.p || []);
-  if (!playerList || !playerList.length) return null;
-
-  const tpStr = iv4?.tp || preLive?.tp;
-  const tbStr = iv4?.tb || preLive?.tb;
-
-  let t1Playing: string[] = [], t2Playing: string[] = [];
-  let t1Bench: string[] = [], t2Bench: string[] = [];
-  if (tpStr && String(tpStr).includes('/')) {
-    const parts = String(tpStr).split('/');
-    t1Playing = parts[0].split('-').filter(Boolean);
-    t2Playing = parts[1].split('-').filter(Boolean);
-  }
-  if (tbStr && String(tbStr).includes('/')) {
-    const parts = String(tbStr).split('/');
-    t1Bench = parts[0].split('-').filter(Boolean);
-    t2Bench = parts[1].split('-').filter(Boolean);
-  }
+  const tp = parseTpTb(iv4.tp || '');
+  const tb = parseTpTb(iv4.tb || '');
+  const t1Playing = tp[0] || [];
+  const t2Playing = tp[1] || [];
+  const t1Bench = tb[0] || [];
+  const t2Bench = tb[1] || [];
 
   if (!t1Playing.length && !t2Playing.length && !t1Bench.length && !t2Bench.length) {
-    return { teamList, playerList, t1: [], t2: [], hasLineup: false };
+    return { hasLineup: false, t1Flag: '', t2Flag: '', t1Players: [], t2Players: [], t1Name: '', t2Name: '' };
   }
 
-  const ftpMap: Record<string, any> = {};
-  if (preLive?.ftp) for (const f of preLive.ftp) ftpMap[f.p] = f.r;
+  // Player name map - merge names from both pages
+  const nameMap = new Map<string, string>();
+  for (const [id, name] of extractPlayerNames(detailsHtml)) nameMap.set(id, name);
+  if (scoreHtml) for (const [id, name] of extractPlayerNames(scoreHtml)) if (!nameMap.has(id)) nameMap.set(id, name);
 
-  const buildPlayer = (str: string, isBench: boolean) => {
-    if (!str) return null;
-    const pData = str.split('.');
-    const pId = pData[0];
-    const pInfo = playerList.find((p: any) => p.f_key === pId) || {};
-    const rawName = pInfo.n || pInfo.f || pId;
-    const isCaptain = /\(c\)/i.test(rawName);
-    const isWkRaw = /\(wk\)/i.test(rawName);
-    const name = String(rawName).replace(/\((wk|c)\)/ig, '').replace(/\s+/g, ' ').trim();
-    const rawRole = ftpMap[pId] !== undefined
-      ? ftpMap[pId]
-      : (pInfo.role || pInfo.p_role || pInfo.playerRole || pInfo.type || pData[2] || '1');
-    const { position, isWk } = rolePositionFromCode(rawRole);
+  // Captain detection from playing XI HTML in details page
+  const captainMap = new Set<string>();
+  const wkMap = new Set<string>();
+  // Section markers for "(C)" and "(WK)"
+  const xiSection = detailsHtml;
+  const rowRe = /<div[^>]*class="playingxi-card-row"[^>]*>([\s\S]*?)<\/a>/g;
+  let rm: RegExpExecArray | null;
+  while ((rm = rowRe.exec(xiSection)) !== null) {
+    const block = rm[1];
+    const idM = block.match(/href="\/player\/[a-z0-9-]+-([A-Z0-9]+)"/);
+    if (!idM) continue;
+    const id = idM[1];
+    if (/\(\s*C\s*\)/.test(block)) captainMap.add(id);
+    if (/\(\s*WK\s*\)/i.test(block)) wkMap.add(id);
+  }
+
+  // Roles map from preLive.ftp
+  const roleMap: Record<string, any> = {};
+  if (preLive?.ftp) for (const f of preLive.ftp) roleMap[f.p] = f.r;
+
+  // Team flags - from iv4.t (e.g. "KB-I"), team1Flag, team2Flag, also from sv3 team1/team2
+  let t1Flag = '', t2Flag = '';
+  if (iv4.t && typeof iv4.t === 'string' && iv4.t.includes('-')) {
+    const parts = iv4.t.split('-');
+    t1Flag = parts[0]; t2Flag = parts[1];
+  }
+  if (!t1Flag) t1Flag = iv4.t1f?.toString().split('&')[5] || iv4.t1f || '';
+  if (!t2Flag) t2Flag = iv4.t2f?.toString().split('&')[5] || iv4.t2f || '';
+
+  // Resolve team names by matching flags against sv3
+  let t1Name = '', t2Name = '';
+  if (sv3) {
+    // sv3 has team1/team2 short codes + team1_f_n/team2_f_n full names + team1flag/team2flag URLs containing flag id
+    const s1Flag = (sv3.team1flag || '').match(/\/([A-Z0-9]+)\.png/i)?.[1] || sv3.team1 || '';
+    const s2Flag = (sv3.team2flag || '').match(/\/([A-Z0-9]+)\.png/i)?.[1] || sv3.team2 || '';
+    if (s1Flag === t1Flag) { t1Name = sv3.team1_f_n || sv3.team1; t2Name = sv3.team2_f_n || sv3.team2; }
+    else if (s2Flag === t1Flag) { t1Name = sv3.team2_f_n || sv3.team2; t2Name = sv3.team1_f_n || sv3.team1; }
+    else { t1Name = sv3.team1_f_n || sv3.team1 || ''; t2Name = sv3.team2_f_n || sv3.team2 || ''; }
+  }
+
+  const buildPlayer = (id: string, isBench: boolean): PlayerEntry => {
+    const name = nameMap.get(id) || id;
+    const role = roleMap[id] !== undefined ? roleMap[id] : '1';
+    const { position, isWk } = rolePositionFromCode(role);
     return {
-      id: pId,
-      name,
-      position,
-      isWk: isWk || isWkRaw,
-      isCaptain,
+      id, name, position,
+      isWk: isWk || wkMap.has(id),
+      isCaptain: captainMap.has(id),
       isBench,
-      image: PLAYER_IMAGE_URL(pId),
+      image: PLAYER_IMAGE_URL(id),
     };
   };
 
-  const t1Players = [
-    ...t1Playing.map(s => buildPlayer(s, false)).filter(Boolean),
-    ...t1Bench.map(s => buildPlayer(s, true)).filter(Boolean),
-  ];
-  const t2Players = [
-    ...t2Playing.map(s => buildPlayer(s, false)).filter(Boolean),
-    ...t2Bench.map(s => buildPlayer(s, true)).filter(Boolean),
-  ];
+  const t1Players = [...t1Playing.map(id => buildPlayer(id, false)), ...t1Bench.map(id => buildPlayer(id, true))];
+  const t2Players = [...t2Playing.map(id => buildPlayer(id, false)), ...t2Bench.map(id => buildPlayer(id, true))];
 
-  // Determine team keys (for mapping to our teams). Crex stores teams in matchInfo.t.
-  const t1Key = teamList?.[0]?.f_key || '';
-  const t2Key = teamList?.[1]?.f_key || '';
-  const t1Name = teamList?.[0]?.n || teamList?.[0]?.f || '';
-  const t2Name = teamList?.[1]?.n || teamList?.[1]?.f || '';
-
-  return {
-    hasLineup: true,
-    t1: { key: t1Key, name: t1Name, players: t1Players },
-    t2: { key: t2Key, name: t2Name, players: t2Players },
-  };
+  return { hasLineup: true, t1Flag, t2Flag, t1Name, t2Name, t1Players, t2Players };
 }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
-
+    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const body = await req.json().catch(() => ({}));
     const { matchId, teamAId, teamBId, teamAName, teamBName, crexMatchFkey: providedFkey } = body || {};
 
@@ -213,20 +232,13 @@ Deno.serve(async (req) => {
 
     let matchFkey: string | null = providedFkey || null;
     if (!matchFkey) {
-      const { data: matchRow } = await supabase
-        .from('matches')
-        .select('crex_match_fkey')
-        .eq('id', matchId)
-        .maybeSingle();
+      const { data: matchRow } = await supabase.from('matches').select('crex_match_fkey').eq('id', matchId).maybeSingle();
       matchFkey = (matchRow as any)?.crex_match_fkey || null;
-      if (!matchFkey) {
-        matchFkey = await findMatchFkey(teamAName, teamBName);
-        if (matchFkey) {
-          await supabase.from('matches').update({ crex_match_fkey: matchFkey }).eq('id', matchId);
-        }
-      }
     }
-
+    if (!matchFkey) {
+      matchFkey = await findMatchFkey(teamAName, teamBName);
+      if (matchFkey) await supabase.from('matches').update({ crex_match_fkey: matchFkey }).eq('id', matchId);
+    }
     if (!matchFkey) {
       return new Response(JSON.stringify({ success: false, error: 'No matching Crex fixture found' }), {
         status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -240,14 +252,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Map crex t1/t2 -> our teamA/teamB by name similarity
+    // Map crex t1/t2 -> our teamA/teamB
     const aN = normalize(teamAName);
-    const t1N = normalize(squads.t1.name);
-    const t1IsA = t1N && (t1N.includes(aN) || aN.includes(t1N));
+    const bN = normalize(teamBName);
+    const t1N = normalize(squads.t1Name);
+    const t2N = normalize(squads.t2Name);
+    let t1IsA = false;
+    if (t1N && (t1N.includes(aN) || aN.includes(t1N))) t1IsA = true;
+    else if (t2N && (t2N.includes(aN) || aN.includes(t2N))) t1IsA = false;
+    else if (t1N && (t1N.includes(bN) || bN.includes(t1N))) t1IsA = false;
+    else t1IsA = true;
     const homeMapsTo = t1IsA ? teamAId : teamBId;
     const awayMapsTo = t1IsA ? teamBId : teamAId;
 
-    const buildRows = (players: any[], teamId: string) => {
+    const buildRows = (players: PlayerEntry[], teamId: string) => {
       let order = 1;
       const seen = new Set<string>();
       const rows: any[] = [];
@@ -271,8 +289,8 @@ Deno.serve(async (req) => {
       return rows;
     };
 
-    const t1Rows = buildRows(squads.t1.players, homeMapsTo);
-    const t2Rows = buildRows(squads.t2.players, awayMapsTo);
+    const t1Rows = buildRows(squads.t1Players, homeMapsTo);
+    const t2Rows = buildRows(squads.t2Players, awayMapsTo);
 
     const t1Starters = t1Rows.filter(r => !r.is_bench).length;
     const t2Starters = t2Rows.filter(r => !r.is_bench).length;
@@ -298,12 +316,12 @@ Deno.serve(async (req) => {
       confirmedXI,
       playersAdded: finalRows.length,
       t1Starters, t2Starters,
+      t1Name: squads.t1Name,
+      t2Name: squads.t2Name,
       message: confirmedXI
         ? `Synced confirmed Playing XI from Crex (${finalRows.length} players)`
         : `Crex squad fetched (${finalRows.length} players). Waiting for confirmed XI.`,
-    }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e: any) {
     console.error('[sync-crex-playing-xi] error:', e);
     return new Response(JSON.stringify({ success: false, error: String(e?.message || e) }), {
