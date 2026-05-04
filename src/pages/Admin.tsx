@@ -33,6 +33,7 @@ import { useToast } from "@/hooks/use-toast";
 import DateTimePicker from "@/components/DateTimePicker";
 import { format } from "date-fns";
 import StreamingServersManager from "@/components/StreamingServersManager";
+import StreamingJsonSourcesManager from "@/components/StreamingJsonSourcesManager";
 import InningsManager from "@/components/InningsManager";
 import PlayingXIManager from "@/components/PlayingXIManager";
 import FootballPlayingXIManager from "@/components/FootballPlayingXIManager";
@@ -2796,6 +2797,8 @@ const Admin = () => {
                 </div>
               </div>
 
+              <StreamingJsonSourcesManager />
+
               {/* Streaming Search & Filter */}
               <div className="flex flex-col gap-3">
                 <Input
@@ -2912,6 +2915,18 @@ const Admin = () => {
                                   </span>
                                 )}
                               </Button>
+                              <label className="flex items-center gap-1.5 text-xs px-2 py-1 border rounded-md cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  className="accent-primary"
+                                  checked={(match as any).auto_streaming_enabled !== false}
+                                  onChange={async (e) => {
+                                    await supabase.from('matches').update({ auto_streaming_enabled: e.target.checked } as any).eq('id', match.id);
+                                    queryClient.invalidateQueries({ queryKey: ['matches'] });
+                                  }}
+                                />
+                                Auto JSON
+                              </label>
                               {match.sport?.name?.toLowerCase() === 'cricket' && (
                                 <Button 
                                   variant="outline" 

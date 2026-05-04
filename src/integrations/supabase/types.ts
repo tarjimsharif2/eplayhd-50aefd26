@@ -728,6 +728,7 @@ export type Database = {
         Row: {
           api_score_enabled: boolean | null
           auto_match_result_enabled: boolean | null
+          auto_streaming_enabled: boolean
           auto_sync_enabled: boolean | null
           created_at: string
           crex_match_fkey: string | null
@@ -781,6 +782,7 @@ export type Database = {
         Insert: {
           api_score_enabled?: boolean | null
           auto_match_result_enabled?: boolean | null
+          auto_streaming_enabled?: boolean
           auto_sync_enabled?: boolean | null
           created_at?: string
           crex_match_fkey?: string | null
@@ -834,6 +836,7 @@ export type Database = {
         Update: {
           api_score_enabled?: boolean | null
           auto_match_result_enabled?: boolean | null
+          auto_streaming_enabled?: boolean
           auto_sync_enabled?: boolean | null
           created_at?: string
           crex_match_fkey?: string | null
@@ -1581,9 +1584,43 @@ export type Database = {
         }
         Relationships: []
       }
+      streaming_json_sources: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          last_sync_status: string | null
+          last_synced_at: string | null
+          name: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_sync_status?: string | null
+          last_synced_at?: string | null
+          name: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_sync_status?: string | null
+          last_synced_at?: string | null
+          name?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       streaming_servers: {
         Row: {
           ad_block_enabled: boolean | null
+          auto_source_id: string | null
           clearkey_key: string | null
           clearkey_key_id: string | null
           cookie_value: string | null
@@ -1609,6 +1646,7 @@ export type Database = {
         }
         Insert: {
           ad_block_enabled?: boolean | null
+          auto_source_id?: string | null
           clearkey_key?: string | null
           clearkey_key_id?: string | null
           cookie_value?: string | null
@@ -1634,6 +1672,7 @@ export type Database = {
         }
         Update: {
           ad_block_enabled?: boolean | null
+          auto_source_id?: string | null
           clearkey_key?: string | null
           clearkey_key_id?: string | null
           cookie_value?: string | null
@@ -2044,6 +2083,7 @@ export type Database = {
     }
     Functions: {
       call_sync_api_scores: { Args: never; Returns: undefined }
+      call_sync_streaming_from_json: { Args: never; Returns: undefined }
       call_update_match_status: { Args: never; Returns: undefined }
       has_custom_permission: {
         Args: { _permission: string; _user_id: string }
