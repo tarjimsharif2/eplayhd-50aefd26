@@ -59,6 +59,32 @@ function extractPlayerNames(html: string): Map<string, string> {
   return out;
 }
 
+// Fetch player full name from /player/x-<ID> profile page <title>
+async function fetchPlayerName(id: string): Promise<string | null> {
+  const html = await fetchText(`https://crex.live/player/x-${id}`);
+  if (!html) return null;
+  const t = html.match(/<title>([^<]+)<\/title>/i);
+  if (!t) return null;
+  // Title format: "Full Name <Country> Cricket Player Profile, ..."
+  const raw = t[1].trim();
+  const cut = raw.split(/\s+(?:Cricket\s+Player\s+Profile|Player\s+Profile|\|)/i)[0];
+  // Strip trailing nationality/role words (Japanese, Indian, English, etc.)
+  const cleaned = cut.replace(/\s+(Indian|Pakistani|Japanese|English|Australian|Sri\s+Lankan|Bangladeshi|South\s+African|New\s+Zealand|Afghan|Afghani|West\s+Indian|Zimbabwean|Irish|Scottish|Dutch|American|Canadian|Nepalese|Nepali|Omani|Emirati|Kenyan|Namibian|Ugandan)$/i, '').trim();
+  return cleaned || null;
+}
+
+async function fillMissingNames(ids: string[], nameMap: Map<string, string>): Promise<void> {
+  const missing = ids.filter(id => !nameMap.has(id));
+  if (!missing.length) return;
+  // Limit concurrency to avoid hammering
+  const CONC = 5;
+  for (let i = 0; i < missing.length; i += CONC) {
+    const batch = missing.slice(i, i + CONC);
+    const results = await Promise.all(batch.map(id => fetchPlayerName(id).then(n => [id, n] as const)));
+    for (const [id, n] of results) if (n) nameMap.set(id, n);
+  }
+}
+
 function parseTpTb(s: string): string[][] {
   if (!s || !s.includes('/')) return [[], []];
   const parts = s.split('/');
@@ -156,6 +182,11 @@ async function fetchSquads(matchFkey: string): Promise<{ hasLineup: boolean; t1F
   const nameMap = new Map<string, string>();
   for (const [id, name] of extractPlayerNames(detailsHtml)) nameMap.set(id, name);
   if (scoreHtml) for (const [id, name] of extractPlayerNames(scoreHtml)) if (!nameMap.has(id)) nameMap.set(id, name);
+
+  // Bench (and any missing playing) IDs aren't linked on the details page —
+  // fetch each player's profile page <title> to resolve full names.
+  const allIds = [...t1Playing, ...t2Playing, ...t1Bench, ...t2Bench];
+  await fillMissingNames(allIds, nameMap);
 
   // Captain detection from playing XI HTML in details page
   const captainMap = new Set<string>();
