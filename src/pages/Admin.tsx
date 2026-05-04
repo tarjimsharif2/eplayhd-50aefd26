@@ -2915,6 +2915,18 @@ const Admin = () => {
                                   </span>
                                 )}
                               </Button>
+                              <label className="flex items-center gap-1.5 text-xs px-2 py-1 border rounded-md cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  className="accent-primary"
+                                  checked={(match as any).auto_streaming_enabled !== false}
+                                  onChange={async (e) => {
+                                    await supabase.from('matches').update({ auto_streaming_enabled: e.target.checked } as any).eq('id', match.id);
+                                    queryClient.invalidateQueries({ queryKey: ['matches'] });
+                                  }}
+                                />
+                                Auto JSON
+                              </label>
                               {match.sport?.name?.toLowerCase() === 'cricket' && (
                                 <Button 
                                   variant="outline" 
