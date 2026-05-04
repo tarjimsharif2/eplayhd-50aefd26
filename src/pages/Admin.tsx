@@ -33,6 +33,7 @@ import { useToast } from "@/hooks/use-toast";
 import DateTimePicker from "@/components/DateTimePicker";
 import { format } from "date-fns";
 import StreamingServersManager from "@/components/StreamingServersManager";
+import StreamingJsonSourcesManager from "@/components/StreamingJsonSourcesManager";
 import InningsManager from "@/components/InningsManager";
 import PlayingXIManager from "@/components/PlayingXIManager";
 import FootballPlayingXIManager from "@/components/FootballPlayingXIManager";
@@ -2795,6 +2796,8 @@ const Admin = () => {
                   <p className="text-xs sm:text-sm text-muted-foreground">Manage M3U8 and iframe links for each match</p>
                 </div>
               </div>
+
+              <StreamingJsonSourcesManager />
 
               {/* Streaming Search & Filter */}
               <div className="flex flex-col gap-3">
