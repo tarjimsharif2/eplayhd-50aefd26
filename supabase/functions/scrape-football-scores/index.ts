@@ -760,6 +760,43 @@ async function fetchESPNScores(league: string = 'epl', includeDetails: boolean =
       console.log(`ESPN API returned ${events.length} events (per-day fallback)`);
     }
 
+    // Extended window fallback: some leagues (FIFA World Cup, Saudi Pro League,
+    // off-season comps, future tournaments) have fixtures outside the 7-day window.
+    // Try progressively wider windows up to ~12 months ahead, plus 30 days back.
+    if (events.length === 0) {
+      const wideWindows = [30, 90, 180, 365];
+      for (const days of wideWindows) {
+        const back = new Date(today);
+        back.setDate(back.getDate() - 30);
+        const forward = new Date(today);
+        forward.setDate(forward.getDate() + days);
+        const wideUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/scoreboard?dates=${formatDate(back)}-${formatDate(forward)}&limit=300`;
+        console.log(`Wide window fallback (+${days}d): ${wideUrl}`);
+        const wideEvents = await fetchEvents(wideUrl);
+        if (wideEvents.length) {
+          events = wideEvents;
+          console.log(`ESPN API returned ${events.length} events (wide ${days}d window)`);
+          break;
+        }
+      }
+    }
+
+    // Final fallback: try the season-based endpoint (no dates param returns current week,
+    // but adding seasontype=1 (pre) / 2 (regular) / 3 (post) sometimes surfaces fixtures)
+    if (events.length === 0) {
+      const seasonYear = today.getFullYear();
+      for (const season of [seasonYear, seasonYear + 1, seasonYear - 1]) {
+        const seasonUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/scoreboard?season=${season}&limit=300`;
+        console.log(`Season fallback (${season}): ${seasonUrl}`);
+        const sEvents = await fetchEvents(seasonUrl);
+        if (sEvents.length) {
+          events = sEvents;
+          console.log(`ESPN API returned ${events.length} events (season=${season})`);
+          break;
+        }
+      }
+    }
+
     for (const event of events) {
       const competition = event.competitions?.[0];
       if (!competition) continue;
