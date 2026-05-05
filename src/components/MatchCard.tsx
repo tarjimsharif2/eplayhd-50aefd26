@@ -350,10 +350,12 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
               <Badge className="bg-red-600 text-white border-0 font-bold text-xs uppercase tracking-wider px-3 py-1.5 shadow-lg">
                 TEST
               </Badge>
-              <Badge className="bg-gradient-to-r from-amber-500 to-orange-600 text-white border-0 font-bold text-sm uppercase tracking-wider px-4 py-2 shadow-lg">
-                <Calendar className="w-3.5 h-3.5 mr-1.5" />
-                Day {match.test_day || 1}
-              </Badge>
+              {match.status !== 'upcoming' && (
+                <Badge className="bg-gradient-to-r from-amber-500 to-orange-600 text-white border-0 font-bold text-sm uppercase tracking-wider px-4 py-2 shadow-lg">
+                  <Calendar className="w-3.5 h-3.5 mr-1.5" />
+                  Day {match.test_day || 1}
+                </Badge>
+              )}
             </div>
           )}
           
