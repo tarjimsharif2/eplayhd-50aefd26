@@ -47,11 +47,13 @@ Deno.serve(async (req) => {
   const log = (...a: unknown[]) => console.log("[sync-streaming-from-json]", ...a);
 
   try {
-    // 1. Load active JSON sources
+    // 1. Load active JSON sources, ordered by display_order then created_at
     const { data: sources, error: srcErr } = await supabase
       .from("streaming_json_sources")
       .select("*")
-      .eq("is_active", true);
+      .eq("is_active", true)
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true });
     if (srcErr) throw srcErr;
     if (!sources || sources.length === 0) {
       return new Response(JSON.stringify({ ok: true, message: "no sources" }), {
@@ -88,9 +90,12 @@ Deno.serve(async (req) => {
 
     let totalAdded = 0, totalUpdated = 0, totalKept = 0;
     const seenKeys = new Set<string>();
+    // Track per-match server counter to name "Server 1, Server 2, ..."
+    const matchServerCount = new Map<string, number>();
 
     // 4. For each source, fetch and process
     for (const src of sources) {
+      const urlField: string = (src as any).url_field || "playerUrl";
       let entries: any[] = [];
       let status = "ok";
       try {
@@ -121,17 +126,23 @@ Deno.serve(async (req) => {
           const score = teamMatchScore(ename, aName, bName);
           if (score < 1.0) continue; // need at least all tokens of both teams matched
 
-          const playerUrl: string = e.playerUrl || e.player_url || e.url || e.streamUrl || "";
+          // Read the configured field (supports dotted path like "stream.url")
+          const playerUrl: string = String(
+            urlField.split(".").reduce((acc: any, k) => (acc == null ? acc : acc[k]), e) ?? ""
+          );
           if (!playerUrl) continue;
 
           // Build a stable auto_source_id: source + entry id/url
           const entryKey = e.id || e.matchUrl || `${ename}-${idx}`;
-          const autoId = `${src.id}::${entryKey}`;
+          const autoId = `${src.id}::${urlField}::${entryKey}`;
           const dedupKey = `${m.id}::${autoId}`;
           if (seenKeys.has(dedupKey)) { idx++; continue; }
           seenKeys.add(dedupKey);
 
-          const serverName = `${src.name}: ${ename}`.slice(0, 200);
+          // Increment per-match counter -> Server 1, Server 2, ...
+          const nextNum = (matchServerCount.get(m.id) || 0) + 1;
+          matchServerCount.set(m.id, nextNum);
+          const serverName = `Server ${nextNum}`;
           const existing = existingMap.get(dedupKey);
 
           if (existing) {
@@ -140,6 +151,7 @@ Deno.serve(async (req) => {
                 server_url: playerUrl,
                 server_name: serverName,
                 is_working: true,
+                display_order: nextNum,
               }).eq("id", existing.id);
               totalUpdated++;
             } else {
@@ -151,7 +163,7 @@ Deno.serve(async (req) => {
               server_name: serverName,
               server_url: playerUrl,
               server_type: "iframe",
-              display_order: 999,
+              display_order: nextNum,
               is_active: true,
               auto_source_id: autoId,
             });
