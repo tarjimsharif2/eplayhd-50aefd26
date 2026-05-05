@@ -1587,6 +1587,7 @@ export type Database = {
       streaming_json_sources: {
         Row: {
           created_at: string
+          display_order: number
           id: string
           is_active: boolean
           last_sync_status: string | null
@@ -1594,9 +1595,11 @@ export type Database = {
           name: string
           updated_at: string
           url: string
+          url_field: string
         }
         Insert: {
           created_at?: string
+          display_order?: number
           id?: string
           is_active?: boolean
           last_sync_status?: string | null
@@ -1604,9 +1607,11 @@ export type Database = {
           name: string
           updated_at?: string
           url: string
+          url_field?: string
         }
         Update: {
           created_at?: string
+          display_order?: number
           id?: string
           is_active?: boolean
           last_sync_status?: string | null
@@ -1614,6 +1619,7 @@ export type Database = {
           name?: string
           updated_at?: string
           url?: string
+          url_field?: string
         }
         Relationships: []
       }
