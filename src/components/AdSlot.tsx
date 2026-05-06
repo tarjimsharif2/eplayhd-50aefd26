@@ -63,7 +63,7 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
         newScript.src = oldScript.src;
         newScript.async = true;
       } else {
-        newScript.textContent = oldScript.textContent;
+        newScript.textContent = `try {\n${oldScript.textContent || ''}\n} catch (error) { console.warn('Ad script blocked after runtime error', error); }`;
       }
       container.appendChild(newScript);
     });
