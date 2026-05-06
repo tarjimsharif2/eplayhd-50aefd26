@@ -63,6 +63,19 @@ const ESPN_LEAGUES_FALLBACK: Record<string, string> = {
   'worldcup': 'fifa.world',
 };
 
+const ESPN_LEAGUE_ALIASES: Record<string, string> = {
+  'sau.1': 'ksa.1',
+  'sau.psl': 'ksa.1',
+  'ksa.psl': 'ksa.1',
+  'ksa.spl': 'ksa.1',
+};
+
+function normalizeESPNLeagueCode(league: string): string {
+  const rawCode = ESPN_LEAGUES_FALLBACK[league as keyof typeof ESPN_LEAGUES_FALLBACK] || league;
+  const key = rawCode.trim().toLowerCase();
+  return ESPN_LEAGUE_ALIASES[key] || rawCode.trim();
+}
+
 // Helper to get all active league codes from database
 async function getActiveLeagueCodes(): Promise<string[]> {
   try {
@@ -87,7 +100,7 @@ async function getActiveLeagueCodes(): Promise<string[]> {
     }
     
     console.log(`Found ${leagues.length} active leagues in database`);
-    return leagues.map(l => l.league_code);
+    return [...new Set(leagues.map(l => normalizeESPNLeagueCode(l.league_code)).filter(Boolean))];
   } catch (err) {
     console.error('Error fetching leagues from DB:', err);
     return Object.values(ESPN_LEAGUES_FALLBACK);
@@ -708,7 +721,7 @@ async function fetchMatchDetails(eventId: string, leagueCode: string): Promise<{
 async function fetchESPNScores(league: string = 'epl', includeDetails: boolean = false): Promise<FootballMatch[]> {
   const matches: FootballMatch[] = [];
   // league can be a short alias (epl, ucl) or a full ESPN code (eng.1, uefa.champions)
-  const leagueCode = ESPN_LEAGUES_FALLBACK[league as keyof typeof ESPN_LEAGUES_FALLBACK] || league;
+  const leagueCode = normalizeESPNLeagueCode(league);
   
   try {
     const formatDate = (d: Date) => d.toISOString().split('T')[0].replace(/-/g, '');
