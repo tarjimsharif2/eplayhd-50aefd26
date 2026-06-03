@@ -108,8 +108,14 @@ async function getActiveLeagueCodes(): Promise<string[]> {
 }
 
 // TheSportsDB: fetch all players of a team and return name->image map
+// Circuit breaker + per-invocation cache to avoid hammering on 429s
+let theSportsDBDisabled = false;
+const theSportsDBCache = new Map<string, Map<string, string>>();
 async function fetchTheSportsDBPlayerImages(teamName: string): Promise<Map<string, string>> {
   const imageMap = new Map<string, string>();
+  if (theSportsDBDisabled) return imageMap;
+  const cacheKey = teamName.toLowerCase();
+  if (theSportsDBCache.has(cacheKey)) return theSportsDBCache.get(cacheKey)!;
   try {
     // Free API key "3" for TheSportsDB v1
     const url = `https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?t=${encodeURIComponent(teamName)}`;
@@ -119,6 +125,11 @@ async function fetchTheSportsDBPlayerImages(teamName: string): Promise<Map<strin
     });
     if (!response.ok) {
       console.warn(`[TheSportsDB] API returned ${response.status} for team: ${teamName}`);
+      if (response.status === 429) {
+        theSportsDBDisabled = true;
+        console.warn('[TheSportsDB] Rate limited — disabling for the rest of this invocation');
+      }
+      theSportsDBCache.set(cacheKey, imageMap);
       return imageMap;
     }
     const data = await response.json();
@@ -136,6 +147,7 @@ async function fetchTheSportsDBPlayerImages(teamName: string): Promise<Map<strin
   } catch (err) {
     console.warn(`[TheSportsDB] Error fetching players for ${teamName}:`, err);
   }
+  theSportsDBCache.set(cacheKey, imageMap);
   return imageMap;
 }
 
@@ -777,7 +789,8 @@ async function fetchESPNScores(league: string = 'epl', includeDetails: boolean =
     // off-season comps, future tournaments) have fixtures outside the 7-day window.
     // Try progressively wider windows up to ~12 months ahead, plus 30 days back.
     if (events.length === 0) {
-      const wideWindows = [30, 90, 180, 365];
+      // Reduced from [30, 90, 180, 365] to save CPU; 90d catches most leagues, 365d covers far-future fixtures
+      const wideWindows = [90, 365];
       for (const days of wideWindows) {
         const back = new Date(today);
         back.setDate(back.getDate() - 30);
@@ -798,7 +811,8 @@ async function fetchESPNScores(league: string = 'epl', includeDetails: boolean =
     // but adding seasontype=1 (pre) / 2 (regular) / 3 (post) sometimes surfaces fixtures)
     if (events.length === 0) {
       const seasonYear = today.getFullYear();
-      for (const season of [seasonYear, seasonYear + 1, seasonYear - 1]) {
+      // Only try current season to save CPU
+      for (const season of [seasonYear]) {
         const seasonUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/scoreboard?season=${season}&limit=300`;
         console.log(`Season fallback (${season}): ${seasonUrl}`);
         const sEvents = await fetchEvents(seasonUrl);
