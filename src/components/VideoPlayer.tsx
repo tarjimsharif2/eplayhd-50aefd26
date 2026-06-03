@@ -459,8 +459,10 @@ const VideoPlayer = ({ url, type, headers, onStreamError, onStreamSuccess }: Vid
   const [useDirectEmbed, setUseDirectEmbed] = useState(false);
   const [isIframeLoading, setIsIframeLoading] = useState(true);
   const [iframeTimedOut, setIframeTimedOut] = useState(false);
+  const [loadingSeconds, setLoadingSeconds] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const successNotifiedRef = useRef(false);
 
   // Handle iframe timeout detection
@@ -469,9 +471,15 @@ const VideoPlayer = ({ url, type, headers, onStreamError, onStreamSuccess }: Vid
       // Reset state on URL change
       setIsIframeLoading(true);
       setIframeTimedOut(false);
+      setLoadingSeconds(0);
       successNotifiedRef.current = false;
 
-      // Start 20 second timeout
+      // Tick a counter so the user sees progress on slow networks
+      tickRef.current = setInterval(() => {
+        setLoadingSeconds((s) => s + 1);
+      }, 1000);
+
+      // Generous 60s timeout so slow mobile networks aren't cut off early
       timeoutRef.current = setTimeout(() => {
         if (isIframeLoading && !successNotifiedRef.current) {
           setIframeTimedOut(true);
@@ -480,11 +488,14 @@ const VideoPlayer = ({ url, type, headers, onStreamError, onStreamSuccess }: Vid
             onStreamError();
           }
         }
-      }, 20000);
+      }, 60000);
 
       return () => {
         if (timeoutRef.current) {
           clearTimeout(timeoutRef.current);
+        }
+        if (tickRef.current) {
+          clearInterval(tickRef.current);
         }
       };
     }
@@ -494,6 +505,9 @@ const VideoPlayer = ({ url, type, headers, onStreamError, onStreamSuccess }: Vid
     setIsIframeLoading(false);
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
+    }
+    if (tickRef.current) {
+      clearInterval(tickRef.current);
     }
     if (!successNotifiedRef.current && onStreamSuccess) {
       successNotifiedRef.current = true;
@@ -538,6 +552,29 @@ const VideoPlayer = ({ url, type, headers, onStreamError, onStreamSuccess }: Vid
   
   const iframeSrc = buildIframeSrc();
 
+  // Preconnect to the iframe origin so DNS/TLS handshake happens early.
+  // Big win on slow mobile networks.
+  useEffect(() => {
+    if (type !== 'iframe' && type !== 'embed') return;
+    try {
+      const origin = new URL(iframeSrc).origin;
+      const links: HTMLLinkElement[] = [];
+      (['preconnect', 'dns-prefetch'] as const).forEach((rel) => {
+        const link = document.createElement('link');
+        link.rel = rel;
+        link.href = origin;
+        link.crossOrigin = 'anonymous';
+        document.head.appendChild(link);
+        links.push(link);
+      });
+      return () => {
+        links.forEach((l) => l.remove());
+      };
+    } catch {
+      // ignore invalid URL
+    }
+  }, [iframeSrc, type]);
+
   // Show timeout error
   if (iframeTimedOut) {
     return (
@@ -555,8 +592,18 @@ const VideoPlayer = ({ url, type, headers, onStreamError, onStreamSuccess }: Vid
     <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden group">
       {/* Loading spinner */}
       {isIframeLoading && (
-        <div className="absolute inset-0 flex items-center justify-center z-10 bg-black">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10 bg-black px-4 text-center">
           <Loader2 className="w-10 h-10 text-primary animate-spin" />
+          <p className="text-white/80 text-sm">
+            {loadingSeconds < 10
+              ? 'Stream loading...'
+              : loadingSeconds < 25
+              ? 'Still loading, please wait...'
+              : 'Slow network detected. Hang on...'}
+          </p>
+          {loadingSeconds >= 15 && (
+            <p className="text-white/50 text-xs">{loadingSeconds}s</p>
+          )}
         </div>
       )}
       
@@ -585,6 +632,7 @@ const VideoPlayer = ({ url, type, headers, onStreamError, onStreamSuccess }: Vid
         frameBorder="0"
         scrolling="no"
         referrerPolicy="unsafe-url"
+        loading="eager"
       />
       
       {/* Direct embed toggle for iframe streams with headers */}
