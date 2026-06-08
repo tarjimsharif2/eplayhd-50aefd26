@@ -58,6 +58,13 @@ const MatchPage = () => {
     };
   }, [publicSettings]);
 
+  // Hide manual scoreboard by default; admins must opt-in per match
+  const manualScoreboardOff = match
+    ? (((match as any).score_source ?? 'manual') === 'manual') && !(match as any).manual_scoreboard_enabled
+    : false;
+  const displayScoreA = manualScoreboardOff ? null : match?.score_a;
+  const displayScoreB = manualScoreboardOff ? null : match?.score_b;
+
   // Real-time updates for match and innings
   const { realtimeMatch } = useRealtimeMatch(match?.id);
 
