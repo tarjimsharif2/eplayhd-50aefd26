@@ -660,6 +660,7 @@ const Admin = () => {
         score_source: matchForm.score_source || 'manual',
         espn_event_id: matchForm.espn_event_id || null,
         show_playing_xi: matchForm.show_playing_xi,
+        manual_scoreboard_enabled: matchForm.manual_scoreboard_enabled,
       };
       let matchId: string | undefined;
       
