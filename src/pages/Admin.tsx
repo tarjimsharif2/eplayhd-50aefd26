@@ -849,6 +849,7 @@ const Admin = () => {
       score_source: 'api_cricket',
       espn_event_id: '',
       show_playing_xi: false,
+      manual_scoreboard_enabled: false,
     });
     setMatchDialogOpen(true);
     toast({ title: "Match copied", description: "Edit the details and save to create a new match." });
@@ -900,6 +901,7 @@ const Admin = () => {
       score_source: 'api_cricket',
       espn_event_id: '',
       show_playing_xi: false,
+      manual_scoreboard_enabled: false,
     });
   };
 
