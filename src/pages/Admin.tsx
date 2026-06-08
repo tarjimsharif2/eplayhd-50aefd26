@@ -213,6 +213,7 @@ const Admin = () => {
     score_source: 'api_cricket' as 'manual' | 'api_cricket' | 'espn',
     espn_event_id: '' as string | null,
     show_playing_xi: false,
+    manual_scoreboard_enabled: false,
   });
 
   const [teamForm, setTeamForm] = useState({
