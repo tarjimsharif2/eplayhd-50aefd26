@@ -739,6 +739,7 @@ const Admin = () => {
       score_source: (match as any).score_source || 'manual',
       espn_event_id: (match as any).espn_event_id || '',
       show_playing_xi: (match as any).show_playing_xi || false,
+      manual_scoreboard_enabled: (match as any).manual_scoreboard_enabled || false,
     });
     setMatchDialogOpen(true);
   };
