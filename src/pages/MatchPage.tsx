@@ -58,6 +58,13 @@ const MatchPage = () => {
     };
   }, [publicSettings]);
 
+  // Hide manual scoreboard by default; admins must opt-in per match
+  const manualScoreboardOff = match
+    ? (((match as any).score_source ?? 'manual') === 'manual') && !(match as any).manual_scoreboard_enabled
+    : false;
+  const displayScoreA = manualScoreboardOff ? null : match?.score_a;
+  const displayScoreB = manualScoreboardOff ? null : match?.score_b;
+
   // Real-time updates for match and innings
   const { realtimeMatch } = useRealtimeMatch(match?.id);
 
@@ -358,8 +365,8 @@ const MatchPage = () => {
               teamB={teamB}
               goalsTeamA={goalsTeamA}
               goalsTeamB={goalsTeamB}
-              scoreA={match.score_a}
-              scoreB={match.score_b}
+              scoreA={displayScoreA}
+              scoreB={displayScoreB}
               matchMinute={match.match_minute}
               matchStatus={match.status}
             />
@@ -496,7 +503,7 @@ const MatchPage = () => {
                         )}
                       </div>
                       <h1 className="font-semibold text-lg md:text-xl break-words text-center">{teamA?.name}</h1>
-                      {match.score_a && <span className="text-2xl font-bold text-primary">{match.score_a}</span>}
+                      {displayScoreA && <span className="text-2xl font-bold text-primary">{displayScoreA}</span>}
                     </div>
 
                     <div className="flex flex-col items-center gap-2 px-4">
@@ -521,7 +528,7 @@ const MatchPage = () => {
                         )}
                       </div>
                       <h1 className="font-semibold text-lg md:text-xl break-words text-center">{teamB?.name}</h1>
-                      {match.score_b && <span className="text-2xl font-bold text-primary">{match.score_b}</span>}
+                      {displayScoreB && <span className="text-2xl font-bold text-primary">{displayScoreB}</span>}
                     </div>
                   </div>
 
@@ -663,7 +670,7 @@ const MatchPage = () => {
                         )}
                       </div>
                       <h1 className="font-semibold text-lg md:text-xl break-words text-center">{teamA?.name}</h1>
-                      {match.score_a && <span className="text-2xl font-bold text-primary">{match.score_a}</span>}
+                      {displayScoreA && <span className="text-2xl font-bold text-primary">{displayScoreA}</span>}
                     </div>
 
                     <div className="flex flex-col items-center gap-2 px-4">
@@ -688,7 +695,7 @@ const MatchPage = () => {
                         )}
                       </div>
                       <h1 className="font-semibold text-lg md:text-xl break-words text-center">{teamB?.name}</h1>
-                      {match.score_b && <span className="text-2xl font-bold text-primary">{match.score_b}</span>}
+                      {displayScoreB && <span className="text-2xl font-bold text-primary">{displayScoreB}</span>}
                     </div>
                   </div>
 

@@ -213,6 +213,7 @@ const Admin = () => {
     score_source: 'api_cricket' as 'manual' | 'api_cricket' | 'espn',
     espn_event_id: '' as string | null,
     show_playing_xi: false,
+    manual_scoreboard_enabled: false,
   });
 
   const [teamForm, setTeamForm] = useState({
@@ -659,6 +660,7 @@ const Admin = () => {
         score_source: matchForm.score_source || 'manual',
         espn_event_id: matchForm.espn_event_id || null,
         show_playing_xi: matchForm.show_playing_xi,
+        manual_scoreboard_enabled: matchForm.manual_scoreboard_enabled,
       };
       let matchId: string | undefined;
       
@@ -738,6 +740,7 @@ const Admin = () => {
       score_source: (match as any).score_source || 'manual',
       espn_event_id: (match as any).espn_event_id || '',
       show_playing_xi: (match as any).show_playing_xi || false,
+      manual_scoreboard_enabled: (match as any).manual_scoreboard_enabled || false,
     });
     setMatchDialogOpen(true);
   };
@@ -847,6 +850,7 @@ const Admin = () => {
       score_source: 'api_cricket',
       espn_event_id: '',
       show_playing_xi: false,
+      manual_scoreboard_enabled: false,
     });
     setMatchDialogOpen(true);
     toast({ title: "Match copied", description: "Edit the details and save to create a new match." });
@@ -898,6 +902,7 @@ const Admin = () => {
       score_source: 'api_cricket',
       espn_event_id: '',
       show_playing_xi: false,
+      manual_scoreboard_enabled: false,
     });
   };
 
@@ -2075,6 +2080,23 @@ const Admin = () => {
                         <Switch
                           checked={matchForm.show_playing_xi}
                           onCheckedChange={(checked) => setMatchForm({ ...matchForm, show_playing_xi: checked })}
+                        />
+                      </div>
+
+                      {/* Manual Scoreboard Toggle (hidden by default for manual matches) */}
+                      <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                          <Label className="flex items-center gap-2">
+                            <Trophy className="w-4 h-4 text-amber-500" />
+                            Show Manual Scoreboard
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Manual matches hide the score by default. Enable to display score_a / score_b on cards & match page.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={matchForm.manual_scoreboard_enabled}
+                          onCheckedChange={(checked) => setMatchForm({ ...matchForm, manual_scoreboard_enabled: checked })}
                         />
                       </div>
 

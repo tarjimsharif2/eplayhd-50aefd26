@@ -424,7 +424,11 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
           {/* Check if it's a football match */}
           {(() => {
             // Only show football scores for live/completed matches (not upcoming)
-            const hasFootballScore = isFootball && (displayStatus === 'live' || displayStatus === 'completed');
+            // Hide scoreboard for manual-source matches unless explicitly enabled
+            const isManualSource = ((match as any).score_source ?? 'manual') === 'manual';
+            const manualScoreboardEnabled = !!(match as any).manual_scoreboard_enabled;
+            const scoreboardAllowed = !isManualSource || manualScoreboardEnabled;
+            const hasFootballScore = isFootball && scoreboardAllowed && (displayStatus === 'live' || displayStatus === 'completed');
             
             // Parse goal data from match - ensure arrays
             const goalsTeamA: GoalEvent[] = Array.isArray(match.goals_team_a) ? match.goals_team_a as GoalEvent[] : [];
