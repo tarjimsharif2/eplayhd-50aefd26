@@ -2083,6 +2083,23 @@ const Admin = () => {
                         />
                       </div>
 
+                      {/* Manual Scoreboard Toggle (hidden by default for manual matches) */}
+                      <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                          <Label className="flex items-center gap-2">
+                            <Trophy className="w-4 h-4 text-amber-500" />
+                            Show Manual Scoreboard
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Manual matches hide the score by default. Enable to display score_a / score_b on cards & match page.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={matchForm.manual_scoreboard_enabled}
+                          onCheckedChange={(checked) => setMatchForm({ ...matchForm, manual_scoreboard_enabled: checked })}
+                        />
+                      </div>
+
 
 
                       <div className="space-y-2">
