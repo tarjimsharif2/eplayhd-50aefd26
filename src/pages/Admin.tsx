@@ -3116,6 +3116,17 @@ const Admin = () => {
                         <Input placeholder="https://..." value={teamForm.logo_url} onChange={(e) => setTeamForm({ ...teamForm, logo_url: e.target.value })} />
                       </div>
                       <div className="space-y-2">
+                        <Label>Aliases (optional)</Label>
+                        <Input
+                          placeholder="e.g., DPR Korea, Korea DPR, Korea Republic"
+                          value={teamForm.aliases}
+                          onChange={(e) => setTeamForm({ ...teamForm, aliases: e.target.value })}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Comma-separated alternative names used only for matching external data (e.g., streaming JSON, API feeds). The main team name remains unchanged.
+                        </p>
+                      </div>
+                      <div className="space-y-2">
                         <Label>Logo Background Color</Label>
                         <div className="flex items-center gap-2">
                           <Checkbox
