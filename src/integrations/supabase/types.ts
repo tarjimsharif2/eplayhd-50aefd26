@@ -1717,6 +1717,7 @@ export type Database = {
       }
       teams: {
         Row: {
+          aliases: string[]
           created_at: string
           id: string
           logo_background_color: string | null
@@ -1726,6 +1727,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          aliases?: string[]
           created_at?: string
           id?: string
           logo_background_color?: string | null
@@ -1735,6 +1737,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          aliases?: string[]
           created_at?: string
           id?: string
           logo_background_color?: string | null

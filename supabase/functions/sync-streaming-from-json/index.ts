@@ -34,6 +34,19 @@ function teamMatchScore(jsonName: string, teamA: string, teamB: string): number 
   return (aHits / a.length) + (bHits / b.length);
 }
 
+// Best score across primary name + all aliases for each side
+function bestPairScore(jsonName: string, aNames: string[], bNames: string[]): number {
+  let best = 0;
+  for (const an of aNames) {
+    for (const bn of bNames) {
+      const s = teamMatchScore(jsonName, an, bn);
+      if (s > best) best = s;
+      if (best >= 2) return best;
+    }
+  }
+  return best;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -64,7 +77,7 @@ Deno.serve(async (req) => {
     // 2. Load matches that opt-in & are upcoming/live
     const { data: matches, error: mErr } = await supabase
       .from("matches")
-      .select("id, status, auto_streaming_enabled, team_a:team_a_id(id,name,short_name), team_b:team_b_id(id,name,short_name)")
+      .select("id, status, auto_streaming_enabled, team_a:team_a_id(id,name,short_name,aliases), team_b:team_b_id(id,name,short_name,aliases)")
       .eq("auto_streaming_enabled", true)
       .in("status", ["upcoming", "live"]);
     if (mErr) throw mErr;
@@ -115,16 +128,24 @@ Deno.serve(async (req) => {
 
       // 5. Match entries to matches
       for (const m of matches) {
-        const aName = (m.team_a as any)?.name || "";
-        const bName = (m.team_b as any)?.name || "";
+        const aTeam = m.team_a as any;
+        const bTeam = m.team_b as any;
+        const aName = aTeam?.name || "";
+        const bName = bTeam?.name || "";
         if (!aName || !bName) continue;
+        const aNames: string[] = [aName, ...(Array.isArray(aTeam?.aliases) ? aTeam.aliases : [])].filter(Boolean);
+        const bNames: string[] = [bName, ...(Array.isArray(bTeam?.aliases) ? bTeam.aliases : [])].filter(Boolean);
 
         let idx = 0;
         for (const e of entries) {
           const ename = e.name || e.title || e.match_name || "";
           if (!ename) continue;
-          const score = teamMatchScore(ename, aName, bName);
-          if (score < 1.0) continue; // need at least all tokens of both teams matched
+          // Try primary names first; fall back to aliases if no match
+          let score = teamMatchScore(ename, aName, bName);
+          if (score < 1.0) {
+            score = bestPairScore(ename, aNames, bNames);
+          }
+          if (score < 1.0) continue;
 
           // Read the configured field (supports dotted path like "stream.url")
           const playerUrl: string = String(

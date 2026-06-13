@@ -17,6 +17,7 @@ export interface Team {
   short_name: string;
   logo_url: string | null;
   logo_background_color: string | null;
+  aliases?: string[] | null;
   created_at: string;
   updated_at: string;
 }
