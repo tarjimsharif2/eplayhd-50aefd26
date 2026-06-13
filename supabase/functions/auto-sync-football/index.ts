@@ -183,8 +183,8 @@ serve(async (req) => {
         sport_id,
         auto_sync_enabled,
         match_start_time,
-        team_a:teams!matches_team_a_id_fkey(name, short_name),
-        team_b:teams!matches_team_b_id_fkey(name, short_name)
+        team_a:teams!matches_team_a_id_fkey(name, short_name, aliases),
+        team_b:teams!matches_team_b_id_fkey(name, short_name, aliases)
       `)
       .in('status', ['upcoming', 'live', 'completed'])
       .eq('is_active', true)
@@ -237,6 +237,133 @@ serve(async (req) => {
 
     let updatedCount = 0;
     const results: { matchId: string; teamA: string; teamB: string; scoreA: string | null; scoreB: string | null }[] = [];
+    const matchedDbIds = new Set<string>();
+
+    // Per-match processing logic — used for both ESPN and Sofascore passes.
+    async function processOne(dbMatch: any, matchedApi: FootballMatch, isReversed: boolean, source: 'espn' | 'sofa') {
+      const teamA = (dbMatch.team_a as unknown) as { name: string; short_name: string } | null;
+      const teamB = (dbMatch.team_b as unknown) as { name: string; short_name: string } | null;
+      const teamAName = teamA?.name || '';
+      const teamBName = teamB?.name || '';
+      const teamAId = dbMatch.team_a_id;
+      const teamBId = dbMatch.team_b_id;
+
+      const newScoreA = isReversed ? matchedApi.awayScore : matchedApi.homeScore;
+      const newScoreB = isReversed ? matchedApi.homeScore : matchedApi.awayScore;
+      const goalsTeamA = isReversed ? matchedApi.awayGoals : matchedApi.homeGoals;
+      const goalsTeamB = isReversed ? matchedApi.homeGoals : matchedApi.awayGoals;
+      const lineupTeamA = isReversed ? matchedApi.awayLineup : matchedApi.homeLineup;
+      const lineupTeamB = isReversed ? matchedApi.homeLineup : matchedApi.awayLineup;
+      const subsTeamA = isReversed ? matchedApi.awaySubs : matchedApi.homeSubs;
+      const subsTeamB = isReversed ? matchedApi.homeSubs : matchedApi.awaySubs;
+
+      let newMinute: number | null = null;
+      if (matchedApi.minute) {
+        const mm = matchedApi.minute.match(/(\d+)/);
+        if (mm) newMinute = parseInt(mm[1], 10);
+      }
+
+      let newStatus = dbMatch.status;
+      if (matchedApi.status === 'Completed') newStatus = 'completed';
+      else if (matchedApi.status === 'Half Time') { newStatus = 'live'; newMinute = 45; }
+      else if (matchedApi.status === 'Live') newStatus = 'live';
+      else if (dbMatch.status === 'live' && matchedApi.status === 'Scheduled') newStatus = 'live';
+
+      if (newMinute === null && newStatus === 'live' && dbMatch.match_start_time) {
+        const startTime = new Date(dbMatch.match_start_time).getTime();
+        const elapsedMin = (Date.now() - startTime) / 1000 / 60;
+        if (elapsedMin <= 47) newMinute = Math.min(Math.floor(elapsedMin), 45);
+        else if (elapsedMin <= 63) newMinute = 45;
+        else newMinute = Math.min(Math.floor(elapsedMin - 15), 90);
+      }
+
+      const scoreChanged = newScoreA !== dbMatch.score_a || newScoreB !== dbMatch.score_b;
+      const minuteChanged = newMinute !== null && newMinute !== dbMatch.match_minute;
+      const statusChanged = newStatus !== dbMatch.status;
+      const hasGoalData = (goalsTeamA?.length || 0) > 0 || (goalsTeamB?.length || 0) > 0;
+
+      if (scoreChanged || minuteChanged || statusChanged || hasGoalData) {
+        const updateData: Record<string, unknown> = {};
+        if (newScoreA !== null) updateData.score_a = newScoreA;
+        if (newScoreB !== null) updateData.score_b = newScoreB;
+        if (newMinute !== null) updateData.match_minute = newMinute;
+        if (statusChanged) updateData.status = newStatus;
+        if (goalsTeamA) updateData.goals_team_a = goalsTeamA;
+        if (goalsTeamB) updateData.goals_team_b = goalsTeamB;
+        updateData.last_api_sync = new Date().toISOString();
+        const { error: updateError } = await supabase.from('matches').update(updateData).eq('id', dbMatch.id);
+        if (!updateError) {
+          console.log(`[auto-sync-football][${source}] Updated ${teamAName} vs ${teamBName}: ${newScoreA}-${newScoreB} (${newMinute}')`);
+          updatedCount++;
+          results.push({ matchId: dbMatch.id, teamA: teamAName, teamB: teamBName, scoreA: newScoreA, scoreB: newScoreB });
+        } else {
+          console.error(`[auto-sync-football][${source}] update error`, updateError);
+        }
+      }
+
+      // Lineup sync (same logic as before)
+      if (lineupTeamA?.length || lineupTeamB?.length) {
+        const { data: existingTeamAPlayers } = await supabase.from('match_playing_xi').select('id, player_image').eq('match_id', dbMatch.id).eq('team_id', teamAId);
+        const { data: existingTeamBPlayers } = await supabase.from('match_playing_xi').select('id, player_image').eq('match_id', dbMatch.id).eq('team_id', teamBId);
+        const existingTeamACount = existingTeamAPlayers?.length || 0;
+        const existingTeamBCount = existingTeamBPlayers?.length || 0;
+        const newTeamACount = lineupTeamA?.length || 0;
+        const newTeamBCount = lineupTeamB?.length || 0;
+        const teamAMissingImages = existingTeamACount > 0 && (existingTeamAPlayers || []).filter(p => !p.player_image).length > existingTeamACount / 2;
+        const teamBMissingImages = existingTeamBCount > 0 && (existingTeamBPlayers || []).filter(p => !p.player_image).length > existingTeamBCount / 2;
+        const newTeamAHasImages = (lineupTeamA || []).some(p => !!p.playerImage);
+        const newTeamBHasImages = (lineupTeamB || []).some(p => !!p.playerImage);
+        const needsTeamASync = newTeamACount > 0 && (existingTeamACount === 0 || (existingTeamACount < 11 && newTeamACount > existingTeamACount) || (teamAMissingImages && newTeamAHasImages));
+        const needsTeamBSync = newTeamBCount > 0 && (existingTeamBCount === 0 || (existingTeamBCount < 11 && newTeamBCount > existingTeamBCount) || (teamBMissingImages && newTeamBHasImages));
+        if (needsTeamASync || needsTeamBSync) {
+          const lineupInserts: any[] = [];
+          if (needsTeamASync && lineupTeamA) {
+            if (existingTeamACount > 0) await supabase.from('match_playing_xi').delete().eq('match_id', dbMatch.id).eq('team_id', teamAId);
+            for (let i = 0; i < lineupTeamA.length; i++) {
+              const p = lineupTeamA[i];
+              lineupInserts.push({ match_id: dbMatch.id, team_id: teamAId, player_name: p.name, player_role: p.position || null, batting_order: i + 1, is_captain: p.isCaptain || false, is_vice_captain: false, player_image: p.playerImage || null });
+            }
+          }
+          if (needsTeamBSync && lineupTeamB) {
+            if (existingTeamBCount > 0) await supabase.from('match_playing_xi').delete().eq('match_id', dbMatch.id).eq('team_id', teamBId);
+            for (let i = 0; i < lineupTeamB.length; i++) {
+              const p = lineupTeamB[i];
+              lineupInserts.push({ match_id: dbMatch.id, team_id: teamBId, player_name: p.name, player_role: p.position || null, batting_order: i + 1, is_captain: p.isCaptain || false, is_vice_captain: false, player_image: p.playerImage || null });
+            }
+          }
+          if (lineupInserts.length > 0) {
+            const { error: lineupError } = await supabase.from('match_playing_xi').insert(lineupInserts);
+            if (lineupError) console.error(`[auto-sync-football][${source}] lineup insert error`, lineupError);
+            else console.log(`[auto-sync-football][${source}] inserted ${lineupInserts.length} players`);
+          }
+        }
+      }
+
+      // Substitutions
+      if (subsTeamA?.length || subsTeamB?.length) {
+        const { data: existingSubs } = await supabase.from('match_substitutions').select('id, minute, player_in, player_out').eq('match_id', dbMatch.id);
+        const existingSubsSet = new Set((existingSubs || []).map(s => `${s.minute}-${s.player_in}-${s.player_out}`));
+        const subsInserts: any[] = [];
+        const push = (arr: SubstitutionEvent[] | undefined, teamId: string) => {
+          if (!arr) return;
+          for (const sub of arr) {
+            if (!sub.playerIn || !sub.playerOut || sub.playerIn === 'Unknown' || sub.playerOut === 'Unknown') continue;
+            const key = `${sub.minute}-${sub.playerIn}-${sub.playerOut}`;
+            if (!existingSubsSet.has(key)) {
+              subsInserts.push({ match_id: dbMatch.id, team_id: teamId, player_out: sub.playerOut, player_in: sub.playerIn, minute: sub.minute });
+              existingSubsSet.add(key);
+            }
+          }
+        };
+        push(subsTeamA, teamAId);
+        push(subsTeamB, teamBId);
+        if (subsInserts.length > 0) {
+          const { error: subsError } = await supabase.from('match_substitutions').insert(subsInserts);
+          if (subsError) console.error(`[auto-sync-football][${source}] subs insert error`, subsError);
+          else console.log(`[auto-sync-football][${source}] inserted ${subsInserts.length} subs`);
+        }
+      }
+    }
 
     // Match and update scores
     for (const dbMatch of footballMatches) {
@@ -246,8 +373,6 @@ serve(async (req) => {
       const teamAShort = teamA?.short_name || '';
       const teamBName = teamB?.name || '';
       const teamBShort = teamB?.short_name || '';
-      const teamAId = dbMatch.team_a_id;
-      const teamBId = dbMatch.team_b_id;
 
       // Find matching API match
       const apiMatch = apiMatches.find(api => {
@@ -267,6 +392,51 @@ serve(async (req) => {
       const isReversed = !!apiMatchReverse && !apiMatch;
 
       if (matchedApi) {
+        matchedDbIds.add(dbMatch.id);
+        await processOne(dbMatch, matchedApi as FootballMatch, isReversed, 'espn');
+      } else {
+        console.log(`[auto-sync-football] No ESPN match found for ${teamAName} vs ${teamBName}`);
+      }
+    }
+
+    // ---- Sofascore fallback for unmatched matches ----
+    const unmatched = footballMatches.filter(m => !matchedDbIds.has(m.id));
+    if (unmatched.length > 0) {
+      console.log(`[auto-sync-football] Trying Sofascore fallback for ${unmatched.length} unmatched matches`);
+      const sofaPayload = unmatched.map(m => {
+        const ta = m.team_a as any; const tb = m.team_b as any;
+        return {
+          id: m.id,
+          teamA: ta?.name || '',
+          teamB: tb?.name || '',
+          aliasesA: Array.isArray(ta?.aliases) ? ta.aliases : [],
+          aliasesB: Array.isArray(tb?.aliases) ? tb.aliases : [],
+        };
+      });
+      try {
+        const { data: sofaResp, error: sofaErr } = await supabase.functions.invoke('scrape-sofascore-football', { body: { matches: sofaPayload } });
+        if (sofaErr) {
+          console.warn('[auto-sync-football] Sofascore fallback failed:', sofaErr.message);
+        } else {
+          const sofaMatches: FootballMatch[] = (sofaResp as any)?.matches || [];
+          console.log(`[auto-sync-football] Sofascore returned ${sofaMatches.length} matches`);
+          for (const sm of sofaMatches) {
+            const db = unmatched.find(u => u.id === (sm as any).matchId);
+            if (!db) continue;
+            // Sofascore output is already oriented to teamA/teamB (home=teamA), so isReversed=false
+            await processOne(db, sm, false, 'sofa');
+          }
+        }
+      } catch (e) {
+        console.warn('[auto-sync-football] Sofascore fallback exception:', e);
+      }
+    }
+
+    // (removed legacy inline processing block)
+    if (false) {
+      const dummy: any = null;
+      if (dummy) {
+        const matchedApi: any = null; const isReversed = false; const dbMatch: any = null;
         const newScoreA = isReversed ? matchedApi.awayScore : matchedApi.homeScore;
         const newScoreB = isReversed ? matchedApi.homeScore : matchedApi.awayScore;
         
