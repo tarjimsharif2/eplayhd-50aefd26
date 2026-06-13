@@ -1217,6 +1217,9 @@ const Admin = () => {
         short_name: teamForm.short_name,
         logo_url: teamForm.logo_url || null,
         logo_background_color: teamForm.use_logo_background_color ? teamForm.logo_background_color : null,
+        aliases: teamForm.aliases
+          ? teamForm.aliases.split(',').map(s => s.trim()).filter(Boolean)
+          : [],
       };
       
       if (editingTeam) {
@@ -1241,6 +1244,7 @@ const Admin = () => {
       logo_url: team.logo_url || '',
       use_logo_background_color: !!team.logo_background_color,
       logo_background_color: team.logo_background_color || '#1a1a2e',
+      aliases: Array.isArray((team as any).aliases) ? (team as any).aliases.join(', ') : '',
     });
     setTeamDialogOpen(true);
   };
@@ -1299,7 +1303,7 @@ const Admin = () => {
 
   const resetTeamForm = () => {
     setEditingTeam(null);
-    setTeamForm({ name: '', short_name: '', logo_url: '', use_logo_background_color: false, logo_background_color: '#1a1a2e' });
+    setTeamForm({ name: '', short_name: '', logo_url: '', use_logo_background_color: false, logo_background_color: '#1a1a2e', aliases: '' });
   };
 
   // Tournament handlers
