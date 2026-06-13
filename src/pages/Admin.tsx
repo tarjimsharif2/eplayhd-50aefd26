@@ -222,6 +222,7 @@ const Admin = () => {
     logo_url: '',
     use_logo_background_color: false,
     logo_background_color: '#1a1a2e',
+    aliases: '',
   });
 
   const [tournamentForm, setTournamentForm] = useState({
