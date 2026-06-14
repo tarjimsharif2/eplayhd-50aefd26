@@ -158,8 +158,14 @@ Deno.serve(async (req) => {
         const aName = aTeam?.name || "";
         const bName = bTeam?.name || "";
         if (!aName || !bName) continue;
-        const aNames: string[] = [aName, ...(Array.isArray(aTeam?.aliases) ? aTeam.aliases : [])].filter(Boolean);
-        const bNames: string[] = [bName, ...(Array.isArray(bTeam?.aliases) ? bTeam.aliases : [])].filter(Boolean);
+        // Filter aliases: drop short/generic ones that cause false matches (e.g. "W", "Women")
+        const cleanAliases = (arr: any): string[] =>
+          (Array.isArray(arr) ? arr : [])
+            .filter((x: any) => typeof x === "string")
+            .map((x: string) => x.trim())
+            .filter((x: string) => x.length >= 3 && distinctive(x).length > 0);
+        const aNames: string[] = [aName, ...cleanAliases(aTeam?.aliases)].filter(Boolean);
+        const bNames: string[] = [bName, ...cleanAliases(bTeam?.aliases)].filter(Boolean);
 
         let idx = 0;
         for (const e of entries) {
@@ -171,6 +177,14 @@ Deno.serve(async (req) => {
             score = bestPairScore(ename, aNames, bNames);
           }
           if (score < 1.0) continue;
+
+          // Hard guard: entry MUST contain a distinctive (non-generic, len>=4)
+          // token from BOTH sides. Prevents "Women/W" alone matching any
+          // women's fixture and importing wrong streams.
+          const overlapOk =
+            hasDistinctiveOverlap(ename, aName, bName) ||
+            aNames.some((an) => bNames.some((bn) => hasDistinctiveOverlap(ename, an, bn)));
+          if (!overlapOk) { idx++; continue; }
 
           // Read the configured field (supports dotted path like "stream.url")
           const playerUrl: string = String(
