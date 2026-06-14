@@ -23,6 +23,19 @@ function tokens(s: string): string[] {
   return normalize(s).split(" ").filter((t) => t && !stop.has(t));
 }
 
+// Generic tokens shared across many teams — useless for distinguishing matches
+const GENERIC = new Set([
+  "women", "womens", "ladies", "men", "mens", "national",
+  "under", "youth", "junior", "senior", "reserves", "ii",
+  "w", "u", "u19", "u20", "u21", "u23", "a", "b",
+  "vs", "v", "live", "match", "stream",
+]);
+
+// Distinctive tokens: long enough and not generic — must appear to confirm a match
+function distinctive(s: string): string[] {
+  return tokens(s).filter((t) => t.length >= 4 && !GENERIC.has(t));
+}
+
 function teamMatchScore(jsonName: string, teamA: string, teamB: string): number {
   const jt = new Set(tokens(jsonName));
   const a = tokens(teamA);
@@ -32,6 +45,18 @@ function teamMatchScore(jsonName: string, teamA: string, teamB: string): number 
   const bHits = b.filter((t) => jt.has(t)).length;
   if (aHits === 0 || bHits === 0) return 0;
   return (aHits / a.length) + (bHits / b.length);
+}
+
+// Confirms entry contains at least one distinctive token of each side.
+// Without this, generic tokens like "women" alone can cause false matches.
+function hasDistinctiveOverlap(jsonName: string, aName: string, bName: string): boolean {
+  const jt = new Set(tokens(jsonName));
+  const aD = distinctive(aName);
+  const bD = distinctive(bName);
+  if (!aD.length || !bD.length) return false;
+  const aOk = aD.some((t) => jt.has(t));
+  const bOk = bD.some((t) => jt.has(t));
+  return aOk && bOk;
 }
 
 // Best score across primary name + all aliases for each side
@@ -133,8 +158,14 @@ Deno.serve(async (req) => {
         const aName = aTeam?.name || "";
         const bName = bTeam?.name || "";
         if (!aName || !bName) continue;
-        const aNames: string[] = [aName, ...(Array.isArray(aTeam?.aliases) ? aTeam.aliases : [])].filter(Boolean);
-        const bNames: string[] = [bName, ...(Array.isArray(bTeam?.aliases) ? bTeam.aliases : [])].filter(Boolean);
+        // Filter aliases: drop short/generic ones that cause false matches (e.g. "W", "Women")
+        const cleanAliases = (arr: any): string[] =>
+          (Array.isArray(arr) ? arr : [])
+            .filter((x: any) => typeof x === "string")
+            .map((x: string) => x.trim())
+            .filter((x: string) => x.length >= 3 && distinctive(x).length > 0);
+        const aNames: string[] = [aName, ...cleanAliases(aTeam?.aliases)].filter(Boolean);
+        const bNames: string[] = [bName, ...cleanAliases(bTeam?.aliases)].filter(Boolean);
 
         let idx = 0;
         for (const e of entries) {
@@ -146,6 +177,14 @@ Deno.serve(async (req) => {
             score = bestPairScore(ename, aNames, bNames);
           }
           if (score < 1.0) continue;
+
+          // Hard guard: entry MUST contain a distinctive (non-generic, len>=4)
+          // token from BOTH sides. Prevents "Women/W" alone matching any
+          // women's fixture and importing wrong streams.
+          const overlapOk =
+            hasDistinctiveOverlap(ename, aName, bName) ||
+            aNames.some((an) => bNames.some((bn) => hasDistinctiveOverlap(ename, an, bn)));
+          if (!overlapOk) { idx++; continue; }
 
           // Read the configured field (supports dotted path like "stream.url")
           const playerUrl: string = String(
