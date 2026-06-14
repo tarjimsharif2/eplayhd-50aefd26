@@ -23,6 +23,19 @@ function tokens(s: string): string[] {
   return normalize(s).split(" ").filter((t) => t && !stop.has(t));
 }
 
+// Generic tokens shared across many teams — useless for distinguishing matches
+const GENERIC = new Set([
+  "women", "womens", "ladies", "men", "mens", "national",
+  "under", "youth", "junior", "senior", "reserves", "ii",
+  "w", "u", "u19", "u20", "u21", "u23", "a", "b",
+  "vs", "v", "live", "match", "stream",
+]);
+
+// Distinctive tokens: long enough and not generic — must appear to confirm a match
+function distinctive(s: string): string[] {
+  return tokens(s).filter((t) => t.length >= 4 && !GENERIC.has(t));
+}
+
 function teamMatchScore(jsonName: string, teamA: string, teamB: string): number {
   const jt = new Set(tokens(jsonName));
   const a = tokens(teamA);
@@ -32,6 +45,18 @@ function teamMatchScore(jsonName: string, teamA: string, teamB: string): number 
   const bHits = b.filter((t) => jt.has(t)).length;
   if (aHits === 0 || bHits === 0) return 0;
   return (aHits / a.length) + (bHits / b.length);
+}
+
+// Confirms entry contains at least one distinctive token of each side.
+// Without this, generic tokens like "women" alone can cause false matches.
+function hasDistinctiveOverlap(jsonName: string, aName: string, bName: string): boolean {
+  const jt = new Set(tokens(jsonName));
+  const aD = distinctive(aName);
+  const bD = distinctive(bName);
+  if (!aD.length || !bD.length) return false;
+  const aOk = aD.some((t) => jt.has(t));
+  const bOk = bD.some((t) => jt.has(t));
+  return aOk && bOk;
 }
 
 // Best score across primary name + all aliases for each side
