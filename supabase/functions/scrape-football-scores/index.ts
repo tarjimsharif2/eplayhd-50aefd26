@@ -738,6 +738,11 @@ async function fetchESPNScores(league: string = 'epl', includeDetails: boolean =
   try {
     const formatDate = (d: Date) => d.toISOString().split('T')[0].replace(/-/g, '');
     const today = new Date();
+    // ESPN groups events by US-local date, so a UTC-early-morning fixture
+    // (e.g. 01:00 UTC) is listed under the previous day. Start the window
+    // 1 day earlier to avoid missing it.
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 1);
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + 7);
 
@@ -745,7 +750,7 @@ async function fetchESPNScores(league: string = 'epl', includeDetails: boolean =
     // Strategy:
     // 1) Try ranged dates (fast)
     // 2) If it returns 0 events, fall back to per-day calls (reliable, esp. for some UEFA competitions)
-    const rangedUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/scoreboard?dates=${formatDate(today)}-${formatDate(endDate)}`;
+    const rangedUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/scoreboard?dates=${formatDate(startDate)}-${formatDate(endDate)}`;
     console.log(`Fetching ESPN API: ${rangedUrl}`);
 
     const baseHeaders = {
