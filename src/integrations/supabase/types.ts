@@ -1599,6 +1599,7 @@ export type Database = {
           updated_at: string
           url: string
           url_field: string
+          use_entry_name: boolean
         }
         Insert: {
           created_at?: string
@@ -1611,6 +1612,7 @@ export type Database = {
           updated_at?: string
           url: string
           url_field?: string
+          use_entry_name?: boolean
         }
         Update: {
           created_at?: string
@@ -1623,6 +1625,7 @@ export type Database = {
           updated_at?: string
           url?: string
           url_field?: string
+          use_entry_name?: boolean
         }
         Relationships: []
       }
