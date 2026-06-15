@@ -31,45 +31,36 @@ const GENERIC = new Set([
   "vs", "v", "live", "match", "stream",
 ]);
 
-// Distinctive tokens: long enough and not generic — must appear to confirm a match
-function distinctive(s: string): string[] {
-  return tokens(s).filter((t) => t.length >= 4 && !GENERIC.has(t));
-}
-
-function teamMatchScore(jsonName: string, teamA: string, teamB: string): number {
-  const jt = new Set(tokens(jsonName));
-  const a = tokens(teamA);
-  const b = tokens(teamB);
-  if (!a.length || !b.length) return 0;
-  const aHits = a.filter((t) => jt.has(t)).length;
-  const bHits = b.filter((t) => jt.has(t)).length;
-  if (aHits === 0 || bHits === 0) return 0;
-  return (aHits / a.length) + (bHits / b.length);
-}
-
-// Confirms entry contains at least one distinctive token of each side.
-// Without this, generic tokens like "women" alone can cause false matches.
-function hasDistinctiveOverlap(jsonName: string, aName: string, bName: string): boolean {
-  const jt = new Set(tokens(jsonName));
-  const aD = distinctive(aName);
-  const bD = distinctive(bName);
-  if (!aD.length || !bD.length) return false;
-  const aOk = aD.some((t) => jt.has(t));
-  const bOk = bD.some((t) => jt.has(t));
-  return aOk && bOk;
-}
-
-// Best score across primary name + all aliases for each side
-function bestPairScore(jsonName: string, aNames: string[], bNames: string[]): number {
-  let best = 0;
-  for (const an of aNames) {
-    for (const bn of bNames) {
-      const s = teamMatchScore(jsonName, an, bn);
-      if (s > best) best = s;
-      if (best >= 2) return best;
-    }
+// Build the set of "match terms" for a team:
+//  - distinctive primary-name tokens (len>=4, non-generic)
+//  - short_name (any length >=2, non-generic) — e.g. "WI", "SL"
+//  - aliases (any length >=2, non-generic)
+// At least one term from BOTH teams must appear in the entry tokens
+// for the match to be accepted.
+function buildMatchTerms(primary: string, shortName: string, aliases: any): string[] {
+  const out = new Set<string>();
+  for (const t of tokens(primary)) {
+    if (t.length >= 4 && !GENERIC.has(t)) out.add(t);
   }
-  return best;
+  const add = (raw: string) => {
+    const n = normalize(raw);
+    for (const t of n.split(" ")) {
+      if (t.length >= 2 && !GENERIC.has(t)) out.add(t);
+    }
+  };
+  if (shortName) add(shortName);
+  if (Array.isArray(aliases)) {
+    for (const a of aliases) if (typeof a === "string" && a.trim()) add(a);
+  }
+  return [...out];
+}
+
+function entryMatchesTeams(jsonName: string, aTerms: string[], bTerms: string[]): boolean {
+  if (!aTerms.length || !bTerms.length) return false;
+  const jt = new Set(tokens(jsonName));
+  const aOk = aTerms.some((t) => jt.has(t));
+  const bOk = bTerms.some((t) => jt.has(t));
+  return aOk && bOk;
 }
 
 Deno.serve(async (req) => {
@@ -152,39 +143,21 @@ Deno.serve(async (req) => {
       }
 
       // 5. Match entries to matches
+      const useEntryName: boolean = !!(src as any).use_entry_name;
       for (const m of matches) {
         const aTeam = m.team_a as any;
         const bTeam = m.team_b as any;
         const aName = aTeam?.name || "";
         const bName = bTeam?.name || "";
         if (!aName || !bName) continue;
-        // Filter aliases: drop short/generic ones that cause false matches (e.g. "W", "Women")
-        const cleanAliases = (arr: any): string[] =>
-          (Array.isArray(arr) ? arr : [])
-            .filter((x: any) => typeof x === "string")
-            .map((x: string) => x.trim())
-            .filter((x: string) => x.length >= 3 && distinctive(x).length > 0);
-        const aNames: string[] = [aName, ...cleanAliases(aTeam?.aliases)].filter(Boolean);
-        const bNames: string[] = [bName, ...cleanAliases(bTeam?.aliases)].filter(Boolean);
+        const aTerms = buildMatchTerms(aName, aTeam?.short_name || "", aTeam?.aliases);
+        const bTerms = buildMatchTerms(bName, bTeam?.short_name || "", bTeam?.aliases);
 
         let idx = 0;
         for (const e of entries) {
           const ename = e.name || e.title || e.match_name || "";
           if (!ename) continue;
-          // Try primary names first; fall back to aliases if no match
-          let score = teamMatchScore(ename, aName, bName);
-          if (score < 1.0) {
-            score = bestPairScore(ename, aNames, bNames);
-          }
-          if (score < 1.0) continue;
-
-          // Hard guard: entry MUST contain a distinctive (non-generic, len>=4)
-          // token from BOTH sides. Prevents "Women/W" alone matching any
-          // women's fixture and importing wrong streams.
-          const overlapOk =
-            hasDistinctiveOverlap(ename, aName, bName) ||
-            aNames.some((an) => bNames.some((bn) => hasDistinctiveOverlap(ename, an, bn)));
-          if (!overlapOk) { idx++; continue; }
+          if (!entryMatchesTeams(ename, aTerms, bTerms)) { idx++; continue; }
 
           // Read the configured field (supports dotted path like "stream.url")
           const playerUrl: string = String(
@@ -202,7 +175,10 @@ Deno.serve(async (req) => {
           // Increment per-match counter -> Server 1, Server 2, ...
           const nextNum = (matchServerCount.get(m.id) || 0) + 1;
           matchServerCount.set(m.id, nextNum);
-          const serverName = `Server ${nextNum}`;
+          // If source has "use entry name" enabled, use the JSON entry name
+          // (e.g. "TNT Sports FHD"); otherwise fall back to "Server N".
+          const entryName = useEntryName ? String(ename).trim() : "";
+          const serverName = entryName || `Server ${nextNum}`;
           const existing = existingMap.get(dedupKey);
 
           if (existing) {

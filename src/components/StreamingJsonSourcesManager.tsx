@@ -18,6 +18,7 @@ interface JsonSource {
   last_sync_status: string | null;
   url_field: string;
   display_order: number;
+  use_entry_name?: boolean;
 }
 
 const StreamingJsonSourcesManager = () => {
@@ -162,6 +163,15 @@ const StreamingJsonSourcesManager = () => {
                       }}
                     />
                     <span className="text-[10px] text-muted-foreground">JSON field</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Switch
+                      checked={!!s.use_entry_name}
+                      onCheckedChange={(v) => updateField(s.id, { use_entry_name: v } as any)}
+                    />
+                    <span className="text-[10px] text-muted-foreground">
+                      Use entry name as server name (e.g. "TNT Sports FHD"). Off = "Server 1, 2…"
+                    </span>
                   </div>
                 </div>
                 <Switch checked={s.is_active} onCheckedChange={() => toggle(s)} />
