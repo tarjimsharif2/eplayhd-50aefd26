@@ -127,6 +127,13 @@ const ChannelPage = () => {
                       markWorking.mutate(activeServer.id);
                     }}
                   />
+                ) : serversLoading ? (
+                  <div className="aspect-video bg-muted flex items-center justify-center">
+                    <div className="text-center text-muted-foreground">
+                      <Loader2 className="w-12 h-12 mx-auto mb-3 animate-spin opacity-70" />
+                      <p>Loading streaming servers...</p>
+                    </div>
+                  </div>
                 ) : (
                   <div className="aspect-video bg-muted flex items-center justify-center">
                     <div className="text-center text-muted-foreground">
