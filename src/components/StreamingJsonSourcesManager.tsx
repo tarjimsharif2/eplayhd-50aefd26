@@ -170,7 +170,7 @@ const StreamingJsonSourcesManager = () => {
                       onCheckedChange={(v) => updateField(s.id, { use_entry_name: v } as any)}
                     />
                     <span className="text-[10px] text-muted-foreground">
-                      Use entry name as server name (e.g. "TNT Sports FHD"). Off = "Server 1, 2…"
+                      Use JSON <code>serverName</code> as server name (e.g. "Fox Sport [English]"). Off = "Server 1, 2…"
                     </span>
                   </div>
                 </div>

@@ -175,9 +175,12 @@ Deno.serve(async (req) => {
           // Increment per-match counter -> Server 1, Server 2, ...
           const nextNum = (matchServerCount.get(m.id) || 0) + 1;
           matchServerCount.set(m.id, nextNum);
-          // If source has "use entry name" enabled, use the JSON entry name
-          // (e.g. "TNT Sports FHD"); otherwise fall back to "Server N".
-          const entryName = useEntryName ? String(ename).trim() : "";
+          // If source has "use entry name" enabled, prefer the JSON entry's
+          // serverName / server_name / channelName field; fall back to entry name.
+          const rawName = useEntryName
+            ? (e.serverName || e.server_name || e.channelName || e.channel || ename)
+            : "";
+          const entryName = String(rawName).trim();
           const serverName = entryName || `Server ${nextNum}`;
           const existing = existingMap.get(dedupKey);
 
