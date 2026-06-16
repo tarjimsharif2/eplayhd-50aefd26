@@ -25,6 +25,7 @@ interface PlayerInfo {
   jerseyNumber?: string;
   isCaptain?: boolean;
   playerImage?: string;
+  isSub?: boolean;
 }
 
 interface FootballMatch {
@@ -42,6 +43,8 @@ interface FootballMatch {
   awayLineup?: PlayerInfo[];
   homeSubs?: SubstitutionEvent[];
   awaySubs?: SubstitutionEvent[];
+  homeCoach?: string;
+  awayCoach?: string;
 }
 
 // Common team name aliases for better matching
