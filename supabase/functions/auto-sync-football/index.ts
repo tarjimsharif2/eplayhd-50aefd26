@@ -186,6 +186,7 @@ serve(async (req) => {
         sport_id,
         auto_sync_enabled,
         match_start_time,
+        espn_event_id,
         team_a:teams!matches_team_a_id_fkey(name, short_name, aliases),
         team_b:teams!matches_team_b_id_fkey(name, short_name, aliases)
       `)
