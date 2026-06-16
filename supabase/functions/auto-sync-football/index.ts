@@ -293,6 +293,10 @@ serve(async (req) => {
         if (statusChanged) updateData.status = newStatus;
         if (goalsTeamA) updateData.goals_team_a = goalsTeamA;
         if (goalsTeamB) updateData.goals_team_b = goalsTeamB;
+        const coachA = isReversed ? matchedApi.awayCoach : matchedApi.homeCoach;
+        const coachB = isReversed ? matchedApi.homeCoach : matchedApi.awayCoach;
+        if (coachA) updateData.head_coach_a = coachA;
+        if (coachB) updateData.head_coach_b = coachB;
         updateData.last_api_sync = new Date().toISOString();
         const { error: updateError } = await supabase.from('matches').update(updateData).eq('id', dbMatch.id);
         if (!updateError) {
@@ -316,22 +320,23 @@ serve(async (req) => {
         const teamBMissingImages = existingTeamBCount > 0 && (existingTeamBPlayers || []).filter(p => !p.player_image).length > existingTeamBCount / 2;
         const newTeamAHasImages = (lineupTeamA || []).some(p => !!p.playerImage);
         const newTeamBHasImages = (lineupTeamB || []).some(p => !!p.playerImage);
-        const needsTeamASync = newTeamACount > 0 && (existingTeamACount === 0 || (existingTeamACount < 11 && newTeamACount > existingTeamACount) || (teamAMissingImages && newTeamAHasImages));
-        const needsTeamBSync = newTeamBCount > 0 && (existingTeamBCount === 0 || (existingTeamBCount < 11 && newTeamBCount > existingTeamBCount) || (teamBMissingImages && newTeamBHasImages));
+        // Resync when we have NEW info: more players (incl. subs), or filling missing images
+        const needsTeamASync = newTeamACount > 0 && (existingTeamACount === 0 || newTeamACount > existingTeamACount || (teamAMissingImages && newTeamAHasImages));
+        const needsTeamBSync = newTeamBCount > 0 && (existingTeamBCount === 0 || newTeamBCount > existingTeamBCount || (teamBMissingImages && newTeamBHasImages));
         if (needsTeamASync || needsTeamBSync) {
           const lineupInserts: any[] = [];
           if (needsTeamASync && lineupTeamA) {
             if (existingTeamACount > 0) await supabase.from('match_playing_xi').delete().eq('match_id', dbMatch.id).eq('team_id', teamAId);
             for (let i = 0; i < lineupTeamA.length; i++) {
               const p = lineupTeamA[i];
-              lineupInserts.push({ match_id: dbMatch.id, team_id: teamAId, player_name: p.name, player_role: p.position || null, batting_order: i + 1, is_captain: p.isCaptain || false, is_vice_captain: false, player_image: p.playerImage || null });
+              lineupInserts.push({ match_id: dbMatch.id, team_id: teamAId, player_name: p.name, player_role: p.position || null, batting_order: i + 1, is_captain: p.isCaptain || false, is_vice_captain: false, is_bench: !!p.isSub, player_image: p.playerImage || null });
             }
           }
           if (needsTeamBSync && lineupTeamB) {
             if (existingTeamBCount > 0) await supabase.from('match_playing_xi').delete().eq('match_id', dbMatch.id).eq('team_id', teamBId);
             for (let i = 0; i < lineupTeamB.length; i++) {
               const p = lineupTeamB[i];
-              lineupInserts.push({ match_id: dbMatch.id, team_id: teamBId, player_name: p.name, player_role: p.position || null, batting_order: i + 1, is_captain: p.isCaptain || false, is_vice_captain: false, player_image: p.playerImage || null });
+              lineupInserts.push({ match_id: dbMatch.id, team_id: teamBId, player_name: p.name, player_role: p.position || null, batting_order: i + 1, is_captain: p.isCaptain || false, is_vice_captain: false, is_bench: !!p.isSub, player_image: p.playerImage || null });
             }
           }
           if (lineupInserts.length > 0) {
