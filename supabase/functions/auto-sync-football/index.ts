@@ -486,6 +486,8 @@ serve(async (req) => {
 
     // Match and update scores
     for (const dbMatch of footballMatches) {
+      // Already handled by ESPN-direct pass
+      if (matchedDbIds.has(dbMatch.id)) continue;
       const teamA = (dbMatch.team_a as unknown) as { name: string; short_name: string } | null;
       const teamB = (dbMatch.team_b as unknown) as { name: string; short_name: string } | null;
       const teamAName = teamA?.name || '';
