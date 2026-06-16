@@ -25,6 +25,7 @@ interface PlayerInfo {
   jerseyNumber?: string;
   isCaptain?: boolean;
   playerImage?: string;
+  isSub?: boolean;
 }
 
 interface FootballMatch {
@@ -42,6 +43,8 @@ interface FootballMatch {
   awayLineup?: PlayerInfo[];
   homeSubs?: SubstitutionEvent[];
   awaySubs?: SubstitutionEvent[];
+  homeCoach?: string;
+  awayCoach?: string;
 }
 
 // Common team name aliases for better matching
@@ -183,6 +186,7 @@ serve(async (req) => {
         sport_id,
         auto_sync_enabled,
         match_start_time,
+        espn_event_id,
         team_a:teams!matches_team_a_id_fkey(name, short_name, aliases),
         team_b:teams!matches_team_b_id_fkey(name, short_name, aliases)
       `)
@@ -221,23 +225,120 @@ serve(async (req) => {
 
     console.log(`[auto-sync-football] Found ${footballMatches.length} football matches to sync`);
 
-    // Fetch scores from ESPN API via scrape-football-scores function
-    const { data: apiResponse, error: apiError } = await supabase.functions.invoke(
-      'scrape-football-scores',
-      { body: { allLeagues: true, includeDetails: true } }
-    );
-
-    if (apiError || !apiResponse?.success) {
-      console.error('[auto-sync-football] API error:', apiError || apiResponse?.error);
-      throw new Error(apiError?.message || apiResponse?.error || 'API fetch failed');
-    }
-
-    const apiMatches: FootballMatch[] = apiResponse.matches || [];
-    console.log(`[auto-sync-football] API returned ${apiMatches.length} matches`);
-
     let updatedCount = 0;
     const results: { matchId: string; teamA: string; teamB: string; scoreA: string | null; scoreB: string | null }[] = [];
     const matchedDbIds = new Set<string>();
+    let apiMatches: FootballMatch[] = [];
+
+    // ---- Helpers for ESPN-direct (per-match) summary fetch ----
+    function pickHeadshot(athlete: any): string | undefined {
+      const h = athlete?.headshot;
+      if (typeof h === 'string' && h.startsWith('http')) return h;
+      if (h && typeof h === 'object' && typeof h.href === 'string' && h.href.startsWith('http')) return h.href;
+      return undefined;
+    }
+    async function fetchEspnSummary(eventId: string): Promise<FootballMatch | null> {
+      try {
+        const url = `https://site.api.espn.com/apis/site/v2/sports/soccer/all/summary?event=${eventId}`;
+        const res = await fetch(url, { headers: { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0' } });
+        if (!res.ok) { console.warn(`[espn-direct] ${eventId} HTTP ${res.status}`); return null; }
+        const data = await res.json();
+        const comp = data?.header?.competitions?.[0];
+        const home = (comp?.competitors || []).find((c: any) => c.homeAway === 'home');
+        const away = (comp?.competitors || []).find((c: any) => c.homeAway === 'away');
+        if (!home || !away) return null;
+
+        const statusType = comp?.status?.type?.name || data?.header?.competitions?.[0]?.status?.type?.name || '';
+        let status = 'Scheduled';
+        if (/FINAL|FULL_TIME|POSTGAME/i.test(statusType)) status = 'Completed';
+        else if (/HALF/i.test(statusType)) status = 'Half Time';
+        else if (/IN_PROGRESS|FIRST_HALF|SECOND_HALF|EXTRA|LIVE/i.test(statusType)) status = 'Live';
+        const clock = comp?.status?.displayClock || null;
+
+        // Lineups + coaches from rosters
+        const homeLineup: PlayerInfo[] = [];
+        const awayLineup: PlayerInfo[] = [];
+        let homeCoach: string | undefined;
+        let awayCoach: string | undefined;
+        for (const roster of (data?.rosters || [])) {
+          const isHome = roster.homeAway === 'home';
+          const target = isHome ? homeLineup : awayLineup;
+          for (const entry of (roster.roster || [])) {
+            const a = entry.athlete;
+            if (!a) continue;
+            target.push({
+              name: a.displayName || a.fullName || 'Unknown',
+              position: entry.position?.abbreviation || a.position?.abbreviation || '',
+              jerseyNumber: a.jersey || entry.jersey,
+              isCaptain: !!entry.captain,
+              playerImage: pickHeadshot(a),
+              isSub: entry.starter === false,
+            });
+          }
+          // Coach (single object or array depending on payload)
+          const coachRaw = roster.coach;
+          const firstCoach = Array.isArray(coachRaw) ? coachRaw[0] : coachRaw;
+          const coachName = firstCoach?.displayName || firstCoach?.fullName ||
+            [firstCoach?.firstName, firstCoach?.lastName].filter(Boolean).join(' ');
+          if (coachName) { if (isHome) homeCoach = coachName; else awayCoach = coachName; }
+        }
+
+        // Goals from scoringPlays / details
+        const homeGoals: GoalEvent[] = [];
+        const awayGoals: GoalEvent[] = [];
+        const homeTeamId = home.team?.id;
+        const plays = data?.scoringPlays || [];
+        for (const p of plays) {
+          const tid = p.team?.id;
+          const isHomeGoal = tid && String(tid) === String(homeTeamId);
+          const target = isHomeGoal ? homeGoals : awayGoals;
+          const minute = p.clock?.displayValue || (p.period?.displayValue ?? '');
+          const player = p?.athletesInvolved?.[0]?.displayName || p?.participants?.[0]?.athlete?.displayName || '';
+          if (!player) continue;
+          const txt = (p?.type?.text || p?.text || '').toLowerCase();
+          let type: 'goal' | 'penalty' | 'own_goal' = 'goal';
+          if (txt.includes('penalty')) type = 'penalty';
+          else if (txt.includes('own')) type = 'own_goal';
+          target.push({ player, minute: String(minute).replace("'", ''), type });
+        }
+
+        return {
+          homeTeam: home.team?.displayName || '',
+          awayTeam: away.team?.displayName || '',
+          homeScore: home.score != null ? String(home.score) : null,
+          awayScore: away.score != null ? String(away.score) : null,
+          status,
+          minute: clock,
+          competition: data?.header?.league?.name || null,
+          startTime: data?.header?.competitions?.[0]?.date || null,
+          homeGoals: homeGoals.length ? homeGoals : undefined,
+          awayGoals: awayGoals.length ? awayGoals : undefined,
+          homeLineup: homeLineup.length ? homeLineup : undefined,
+          awayLineup: awayLineup.length ? awayLineup : undefined,
+          homeCoach, awayCoach,
+        };
+      } catch (e) {
+        console.warn(`[espn-direct] error for ${eventId}:`, e);
+        return null;
+      }
+    }
+
+    // ---- Pass 1: ESPN direct summary for matches with espn_event_id ----
+    const directCandidates = footballMatches.filter((m: any) => !!m.espn_event_id);
+    console.log(`[auto-sync-football] ESPN-direct pass for ${directCandidates.length} matches`);
+    for (const dbMatch of directCandidates) {
+      const summary = await fetchEspnSummary(String((dbMatch as any).espn_event_id));
+      if (!summary) continue;
+      matchedDbIds.add(dbMatch.id);
+      // Summary is oriented to home=teamA only if our team_a was the home side.
+      const teamA = (dbMatch.team_a as any); const teamB = (dbMatch.team_b as any);
+      const aName = teamA?.name || ''; const bName = teamB?.name || '';
+      const aShort = teamA?.short_name || ''; const bShort = teamB?.short_name || '';
+      const homeIsA = teamsMatch(aName, summary.homeTeam) || teamsMatch(aShort, summary.homeTeam);
+      const homeIsB = !homeIsA && (teamsMatch(bName, summary.homeTeam) || teamsMatch(bShort, summary.homeTeam));
+      const isReversed = homeIsB; // home in API == our teamB
+      await processOne(dbMatch, summary, isReversed, 'espn');
+    }
 
     // Per-match processing logic — used for both ESPN and Sofascore passes.
     async function processOne(dbMatch: any, matchedApi: FootballMatch, isReversed: boolean, source: 'espn' | 'sofa') {
@@ -290,6 +391,10 @@ serve(async (req) => {
         if (statusChanged) updateData.status = newStatus;
         if (goalsTeamA) updateData.goals_team_a = goalsTeamA;
         if (goalsTeamB) updateData.goals_team_b = goalsTeamB;
+        const coachA = isReversed ? matchedApi.awayCoach : matchedApi.homeCoach;
+        const coachB = isReversed ? matchedApi.homeCoach : matchedApi.awayCoach;
+        if (coachA) updateData.head_coach_a = coachA;
+        if (coachB) updateData.head_coach_b = coachB;
         updateData.last_api_sync = new Date().toISOString();
         const { error: updateError } = await supabase.from('matches').update(updateData).eq('id', dbMatch.id);
         if (!updateError) {
@@ -313,22 +418,23 @@ serve(async (req) => {
         const teamBMissingImages = existingTeamBCount > 0 && (existingTeamBPlayers || []).filter(p => !p.player_image).length > existingTeamBCount / 2;
         const newTeamAHasImages = (lineupTeamA || []).some(p => !!p.playerImage);
         const newTeamBHasImages = (lineupTeamB || []).some(p => !!p.playerImage);
-        const needsTeamASync = newTeamACount > 0 && (existingTeamACount === 0 || (existingTeamACount < 11 && newTeamACount > existingTeamACount) || (teamAMissingImages && newTeamAHasImages));
-        const needsTeamBSync = newTeamBCount > 0 && (existingTeamBCount === 0 || (existingTeamBCount < 11 && newTeamBCount > existingTeamBCount) || (teamBMissingImages && newTeamBHasImages));
+        // Resync when we have NEW info: more players (incl. subs), or filling missing images
+        const needsTeamASync = newTeamACount > 0 && (existingTeamACount === 0 || newTeamACount > existingTeamACount || (teamAMissingImages && newTeamAHasImages));
+        const needsTeamBSync = newTeamBCount > 0 && (existingTeamBCount === 0 || newTeamBCount > existingTeamBCount || (teamBMissingImages && newTeamBHasImages));
         if (needsTeamASync || needsTeamBSync) {
           const lineupInserts: any[] = [];
           if (needsTeamASync && lineupTeamA) {
             if (existingTeamACount > 0) await supabase.from('match_playing_xi').delete().eq('match_id', dbMatch.id).eq('team_id', teamAId);
             for (let i = 0; i < lineupTeamA.length; i++) {
               const p = lineupTeamA[i];
-              lineupInserts.push({ match_id: dbMatch.id, team_id: teamAId, player_name: p.name, player_role: p.position || null, batting_order: i + 1, is_captain: p.isCaptain || false, is_vice_captain: false, player_image: p.playerImage || null });
+              lineupInserts.push({ match_id: dbMatch.id, team_id: teamAId, player_name: p.name, player_role: p.position || null, batting_order: i + 1, is_captain: p.isCaptain || false, is_vice_captain: false, is_bench: !!p.isSub, player_image: p.playerImage || null });
             }
           }
           if (needsTeamBSync && lineupTeamB) {
             if (existingTeamBCount > 0) await supabase.from('match_playing_xi').delete().eq('match_id', dbMatch.id).eq('team_id', teamBId);
             for (let i = 0; i < lineupTeamB.length; i++) {
               const p = lineupTeamB[i];
-              lineupInserts.push({ match_id: dbMatch.id, team_id: teamBId, player_name: p.name, player_role: p.position || null, batting_order: i + 1, is_captain: p.isCaptain || false, is_vice_captain: false, player_image: p.playerImage || null });
+              lineupInserts.push({ match_id: dbMatch.id, team_id: teamBId, player_name: p.name, player_role: p.position || null, batting_order: i + 1, is_captain: p.isCaptain || false, is_vice_captain: false, is_bench: !!p.isSub, player_image: p.playerImage || null });
             }
           }
           if (lineupInserts.length > 0) {
@@ -365,8 +471,29 @@ serve(async (req) => {
       }
     }
 
-    // Match and update scores
+    // ---- Pass 2: Scoreboard scrape for matches WITHOUT espn_event_id (or that direct pass missed) ----
+    const needsScoreboard = footballMatches.filter(m => !matchedDbIds.has(m.id));
+    if (needsScoreboard.length > 0) {
+      try {
+        const { data: apiResponse, error: apiError } = await supabase.functions.invoke(
+          'scrape-football-scores',
+          { body: { allLeagues: true, includeDetails: true } }
+        );
+        if (apiError || !apiResponse?.success) {
+          console.warn('[auto-sync-football] scoreboard pass skipped:', apiError?.message || apiResponse?.error);
+        } else {
+          apiMatches = apiResponse.matches || [];
+          console.log(`[auto-sync-football] scoreboard returned ${apiMatches.length} matches`);
+        }
+      } catch (e) {
+        console.warn('[auto-sync-football] scoreboard fetch error:', e);
+      }
+    }
+
+    // Match and update scores from scoreboard data
     for (const dbMatch of footballMatches) {
+      // Already handled by ESPN-direct pass
+      if (matchedDbIds.has(dbMatch.id)) continue;
       const teamA = (dbMatch.team_a as unknown) as { name: string; short_name: string } | null;
       const teamB = (dbMatch.team_b as unknown) as { name: string; short_name: string } | null;
       const teamAName = teamA?.name || '';

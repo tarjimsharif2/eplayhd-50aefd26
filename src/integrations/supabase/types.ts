@@ -738,6 +738,8 @@ export type Database = {
           espn_event_id: string | null
           goals_team_a: Json | null
           goals_team_b: Json | null
+          head_coach_a: string | null
+          head_coach_b: string | null
           id: string
           is_active: boolean | null
           is_priority: boolean | null
@@ -793,6 +795,8 @@ export type Database = {
           espn_event_id?: string | null
           goals_team_a?: Json | null
           goals_team_b?: Json | null
+          head_coach_a?: string | null
+          head_coach_b?: string | null
           id?: string
           is_active?: boolean | null
           is_priority?: boolean | null
@@ -848,6 +852,8 @@ export type Database = {
           espn_event_id?: string | null
           goals_team_a?: Json | null
           goals_team_b?: Json | null
+          head_coach_a?: string | null
+          head_coach_b?: string | null
           id?: string
           is_active?: boolean | null
           is_priority?: boolean | null
