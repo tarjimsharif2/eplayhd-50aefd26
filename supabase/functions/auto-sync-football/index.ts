@@ -471,7 +471,26 @@ serve(async (req) => {
       }
     }
 
-    // Match and update scores
+    // ---- Pass 2: Scoreboard scrape for matches WITHOUT espn_event_id (or that direct pass missed) ----
+    const needsScoreboard = footballMatches.filter(m => !matchedDbIds.has(m.id));
+    if (needsScoreboard.length > 0) {
+      try {
+        const { data: apiResponse, error: apiError } = await supabase.functions.invoke(
+          'scrape-football-scores',
+          { body: { allLeagues: true, includeDetails: true } }
+        );
+        if (apiError || !apiResponse?.success) {
+          console.warn('[auto-sync-football] scoreboard pass skipped:', apiError?.message || apiResponse?.error);
+        } else {
+          apiMatches = apiResponse.matches || [];
+          console.log(`[auto-sync-football] scoreboard returned ${apiMatches.length} matches`);
+        }
+      } catch (e) {
+        console.warn('[auto-sync-football] scoreboard fetch error:', e);
+      }
+    }
+
+    // Match and update scores from scoreboard data
     for (const dbMatch of footballMatches) {
       // Already handled by ESPN-direct pass
       if (matchedDbIds.has(dbMatch.id)) continue;
