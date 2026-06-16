@@ -225,23 +225,10 @@ serve(async (req) => {
 
     console.log(`[auto-sync-football] Found ${footballMatches.length} football matches to sync`);
 
-    // Fetch scores from ESPN API via scrape-football-scores function
-    const { data: apiResponse, error: apiError } = await supabase.functions.invoke(
-      'scrape-football-scores',
-      { body: { allLeagues: true, includeDetails: true } }
-    );
-
-    if (apiError || !apiResponse?.success) {
-      console.error('[auto-sync-football] API error:', apiError || apiResponse?.error);
-      throw new Error(apiError?.message || apiResponse?.error || 'API fetch failed');
-    }
-
-    const apiMatches: FootballMatch[] = apiResponse.matches || [];
-    console.log(`[auto-sync-football] API returned ${apiMatches.length} matches`);
-
     let updatedCount = 0;
     const results: { matchId: string; teamA: string; teamB: string; scoreA: string | null; scoreB: string | null }[] = [];
     const matchedDbIds = new Set<string>();
+    let apiMatches: FootballMatch[] = [];
 
     // ---- Helpers for ESPN-direct (per-match) summary fetch ----
     function pickHeadshot(athlete: any): string | undefined {
