@@ -19,6 +19,8 @@ interface JsonSource {
   url_field: string;
   display_order: number;
   use_entry_name?: boolean;
+  backup_of_source_id?: string | null;
+  sync_interval_minutes?: number;
 }
 
 const StreamingJsonSourcesManager = () => {
