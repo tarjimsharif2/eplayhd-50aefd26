@@ -476,6 +476,12 @@ serve(async (req) => {
             else console.log(`[auto-sync-football][${source}] inserted ${lineupInserts.length} players`);
           }
         }
+        // Mark lineup_announced when both teams have ≥11 starters (non-bench)
+        const startersA = (lineupTeamA || []).filter(p => !p.isSub).length;
+        const startersB = (lineupTeamB || []).filter(p => !p.isSub).length;
+        if (startersA >= 11 && startersB >= 11) {
+          await supabase.from('matches').update({ lineup_announced: true }).eq('id', dbMatch.id);
+        }
       }
 
       // Substitutions
