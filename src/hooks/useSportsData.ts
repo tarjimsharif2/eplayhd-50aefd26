@@ -99,6 +99,7 @@ export interface Match {
   is_active: boolean;
   goals_team_a: GoalEvent[] | unknown;
   goals_team_b: GoalEvent[] | unknown;
+  lineup_announced?: boolean;
   created_at: string;
   updated_at: string;
   tournament?: Tournament;

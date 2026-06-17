@@ -164,6 +164,16 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
   const isCricket = sportLower.includes('cricket') || hasCricketFormat;
   const isFootball = sportLower.includes('football') || sportLower.includes('soccer');
 
+  // "Lineup Announced" badge — visible from announcement until 15 min after kick-off.
+  const showLineupAnnouncedBadge = useMemo(() => {
+    if (!(match as any).lineup_announced) return false;
+    if (displayStatus === 'completed' || displayStatus === 'abandoned') return false;
+    if (!match.match_start_time) return true;
+    const start = new Date(match.match_start_time).getTime();
+    if (isNaN(start)) return true;
+    return Date.now() < start + 15 * 60 * 1000;
+  }, [(match as any).lineup_announced, match.match_start_time, displayStatus]);
+
   // Fetch innings for cricket matches
   const { data: innings } = useMatchInnings(isCricket ? match.id : undefined);
   
@@ -397,6 +407,11 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
               {sportName}
             </Badge>
             <div className="flex items-center gap-2">
+              {showLineupAnnouncedBadge && (
+                <Badge className="bg-emerald-500/20 text-emerald-500 border-emerald-500/30 text-[10px] px-2 py-0.5 font-semibold uppercase tracking-wide">
+                  Lineup Announced
+                </Badge>
+              )}
               {match.is_priority && (
                 <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
               )}
