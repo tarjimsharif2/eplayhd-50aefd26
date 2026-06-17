@@ -745,7 +745,6 @@ export type Database = {
           is_priority: boolean | null
           is_stumps: boolean | null
           last_api_sync: string | null
-          lineup_announced: boolean
           manual_scoreboard_enabled: boolean
           manual_status_override: boolean | null
           match_date: string
@@ -803,7 +802,6 @@ export type Database = {
           is_priority?: boolean | null
           is_stumps?: boolean | null
           last_api_sync?: string | null
-          lineup_announced?: boolean
           manual_scoreboard_enabled?: boolean
           manual_status_override?: boolean | null
           match_date: string
@@ -861,7 +859,6 @@ export type Database = {
           is_priority?: boolean | null
           is_stumps?: boolean | null
           last_api_sync?: string | null
-          lineup_announced?: boolean
           manual_scoreboard_enabled?: boolean
           manual_status_override?: boolean | null
           match_date?: string
@@ -1598,68 +1595,50 @@ export type Database = {
       }
       streaming_json_sources: {
         Row: {
-          backup_of_source_id: string | null
           created_at: string
           display_order: number
           id: string
           is_active: boolean
-          last_sync_attempted_at: string | null
           last_sync_status: string | null
           last_synced_at: string | null
           name: string
-          sync_interval_minutes: number
           updated_at: string
           url: string
           url_field: string
           use_entry_name: boolean
         }
         Insert: {
-          backup_of_source_id?: string | null
           created_at?: string
           display_order?: number
           id?: string
           is_active?: boolean
-          last_sync_attempted_at?: string | null
           last_sync_status?: string | null
           last_synced_at?: string | null
           name: string
-          sync_interval_minutes?: number
           updated_at?: string
           url: string
           url_field?: string
           use_entry_name?: boolean
         }
         Update: {
-          backup_of_source_id?: string | null
           created_at?: string
           display_order?: number
           id?: string
           is_active?: boolean
-          last_sync_attempted_at?: string | null
           last_sync_status?: string | null
           last_synced_at?: string | null
           name?: string
-          sync_interval_minutes?: number
           updated_at?: string
           url?: string
           url_field?: string
           use_entry_name?: boolean
         }
-        Relationships: [
-          {
-            foreignKeyName: "streaming_json_sources_backup_of_source_id_fkey"
-            columns: ["backup_of_source_id"]
-            isOneToOne: false
-            referencedRelation: "streaming_json_sources"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       streaming_servers: {
         Row: {
           ad_block_enabled: boolean | null
           auto_source_id: string | null
-          backup_locked: boolean
           clearkey_key: string | null
           clearkey_key_id: string | null
           cookie_value: string | null
@@ -1686,7 +1665,6 @@ export type Database = {
         Insert: {
           ad_block_enabled?: boolean | null
           auto_source_id?: string | null
-          backup_locked?: boolean
           clearkey_key?: string | null
           clearkey_key_id?: string | null
           cookie_value?: string | null
@@ -1713,7 +1691,6 @@ export type Database = {
         Update: {
           ad_block_enabled?: boolean | null
           auto_source_id?: string | null
-          backup_locked?: boolean
           clearkey_key?: string | null
           clearkey_key_id?: string | null
           cookie_value?: string | null

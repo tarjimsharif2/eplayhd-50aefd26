@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
     // 2. Load matches that opt-in & are upcoming/live
     const { data: matches, error: mErr } = await supabase
       .from("matches")
-      .select("id, status, match_start_time, auto_streaming_enabled, team_a:team_a_id(id,name,short_name,aliases), team_b:team_b_id(id,name,short_name,aliases)")
+      .select("id, status, auto_streaming_enabled, team_a:team_a_id(id,name,short_name,aliases), team_b:team_b_id(id,name,short_name,aliases)")
       .eq("auto_streaming_enabled", true)
       .in("status", ["upcoming", "live"]);
     if (mErr) throw mErr;
@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
     const matchIds = matches.map((m: any) => m.id);
     const { data: existingAuto } = await supabase
       .from("streaming_servers")
-      .select("id, match_id, auto_source_id, server_url, server_name, backup_locked")
+      .select("id, match_id, auto_source_id, server_url, server_name")
       .in("match_id", matchIds)
       .not("auto_source_id", "is", null);
 
@@ -119,36 +119,11 @@ Deno.serve(async (req) => {
 
     let totalAdded = 0, totalUpdated = 0, totalKept = 0;
     const seenKeys = new Set<string>();
-    // Track which (match, primary-source) pairs successfully produced a server this run.
-    // Used to decide whether the backup source should fill in.
-    const primarySatisfied = new Set<string>(); // `${matchId}::${primarySourceId}`
     // Track per-match server counter to name "Server 1, Server 2, ..."
     const matchServerCount = new Map<string, number>();
 
-    // Order: primaries first, then backups (so we know which primaries failed)
-    const orderedSources = [
-      ...sources.filter((s: any) => !s.backup_of_source_id),
-      ...sources.filter((s: any) => !!s.backup_of_source_id),
-    ];
-
-    const nowMs = Date.now();
-
     // 4. For each source, fetch and process
-    for (const src of orderedSources) {
-      // Respect per-source sync interval
-      const intervalMin = Number((src as any).sync_interval_minutes) || 2;
-      const lastAttempt = (src as any).last_sync_attempted_at ? new Date((src as any).last_sync_attempted_at).getTime() : 0;
-      if (lastAttempt && (nowMs - lastAttempt) < intervalMin * 60_000) {
-        log(`skip ${src.name} (interval ${intervalMin}m not elapsed)`);
-        continue;
-      }
-      // Mark attempt immediately so a long-running source still respects interval
-      await supabase.from("streaming_json_sources").update({
-        last_sync_attempted_at: new Date().toISOString(),
-      }).eq("id", src.id);
-
-      const isBackup = !!(src as any).backup_of_source_id;
-      const primaryId: string | null = isBackup ? (src as any).backup_of_source_id : null;
+    for (const src of sources) {
       const urlField: string = (src as any).url_field || "playerUrl";
       let entries: any[] = [];
       let status = "ok";
@@ -178,20 +153,6 @@ Deno.serve(async (req) => {
         const aTerms = buildMatchTerms(aName, aTeam?.short_name || "", aTeam?.aliases);
         const bTerms = buildMatchTerms(bName, bTeam?.short_name || "", bTeam?.aliases);
 
-        // Backup-only rule: skip unless the primary failed for this match AND
-        // the match is within 10 minutes of kick-off (or already live).
-        if (isBackup && primaryId) {
-          if (primarySatisfied.has(`${m.id}::${primaryId}`)) continue;
-          if ((m as any).status !== "live") {
-            const startStr = (m as any).match_start_time;
-            if (!startStr) continue;
-            const startMs = new Date(startStr).getTime();
-            if (isNaN(startMs)) continue;
-            // Activate backup when we are within 10 min before kick-off (or after)
-            if (startMs - nowMs > 10 * 60_000) continue;
-          }
-        }
-
         let idx = 0;
         for (const e of entries) {
           const ename = e.name || e.title || e.match_name || "";
@@ -210,7 +171,6 @@ Deno.serve(async (req) => {
           const dedupKey = `${m.id}::${autoId}`;
           if (seenKeys.has(dedupKey)) { idx++; continue; }
           seenKeys.add(dedupKey);
-          if (!isBackup) primarySatisfied.add(`${m.id}::${src.id}`);
 
           // Increment per-match counter -> Server 1, Server 2, ...
           const nextNum = (matchServerCount.get(m.id) || 0) + 1;
@@ -245,7 +205,6 @@ Deno.serve(async (req) => {
               display_order: nextNum,
               is_active: true,
               auto_source_id: autoId,
-              backup_locked: isBackup, // backup entries persist even after primary recovers
             });
             totalAdded++;
           }
@@ -264,8 +223,6 @@ Deno.serve(async (req) => {
     for (const s of existingAuto || []) {
       const key = `${s.match_id}::${s.auto_source_id}`;
       if (!seenKeys.has(key)) {
-        // Never auto-delete a backup-locked server — it persists once activated
-        if (s.backup_locked) continue;
         // Only delete if its source prefix matches a still-active source we processed
         const srcId = String(s.auto_source_id).split("::")[0];
         if (sources.some((x: any) => x.id === srcId)) {

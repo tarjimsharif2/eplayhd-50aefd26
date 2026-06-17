@@ -19,8 +19,6 @@ interface JsonSource {
   url_field: string;
   display_order: number;
   use_entry_name?: boolean;
-  backup_of_source_id?: string | null;
-  sync_interval_minutes?: number;
 }
 
 const StreamingJsonSourcesManager = () => {
@@ -174,34 +172,6 @@ const StreamingJsonSourcesManager = () => {
                     <span className="text-[10px] text-muted-foreground">
                       Use JSON <code>serverName</code> as server name (e.g. "Fox Sport [English]"). Off = "Server 1, 2…"
                     </span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <label className="text-[10px] text-muted-foreground">Sync every</label>
-                    <Input
-                      type="number"
-                      min={1}
-                      className="h-6 text-xs w-16"
-                      defaultValue={s.sync_interval_minutes ?? 2}
-                      onBlur={(e) => {
-                        const v = Math.max(1, parseInt(e.target.value || "2", 10) || 2);
-                        if (v !== (s.sync_interval_minutes ?? 2)) updateField(s.id, { sync_interval_minutes: v } as any);
-                      }}
-                    />
-                    <span className="text-[10px] text-muted-foreground">min</span>
-                    <label className="text-[10px] text-muted-foreground ml-2">Backup of</label>
-                    <select
-                      className="h-6 text-xs bg-background border rounded px-1"
-                      value={s.backup_of_source_id ?? ""}
-                      onChange={(e) => updateField(s.id, { backup_of_source_id: e.target.value || null } as any)}
-                    >
-                      <option value="">— None (primary)</option>
-                      {sources.filter(o => o.id !== s.id && !o.backup_of_source_id).map(o => (
-                        <option key={o.id} value={o.id}>{o.name}</option>
-                      ))}
-                    </select>
-                    {s.backup_of_source_id && (
-                      <span className="text-[10px] text-amber-500">Activates 10 min before kick-off if primary fails</span>
-                    )}
                   </div>
                 </div>
                 <Switch checked={s.is_active} onCheckedChange={() => toggle(s)} />
