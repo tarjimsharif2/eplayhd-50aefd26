@@ -302,37 +302,6 @@ serve(async (req) => {
           target.push({ player, minute: String(minute).replace("'", ''), type });
         }
 
-        // Substitutions from full plays[] list (ESPN summary includes all events)
-        const homeSubs: SubstitutionEvent[] = [];
-        const awaySubs: SubstitutionEvent[] = [];
-        const allPlays = Array.isArray(data?.plays) ? data.plays : [];
-        for (const p of allPlays) {
-          const txt = (p?.type?.text || p?.text || '').toLowerCase();
-          if (!txt.includes('substitut')) continue;
-          const tid = p.team?.id;
-          const isHome = tid && String(tid) === String(homeTeamId);
-          const target = isHome ? homeSubs : awaySubs;
-          const minute = String(p.clock?.displayValue || '').replace("'", '');
-          // ESPN: participants[] often has [in, out] or athletesInvolved with subType
-          const parts = Array.isArray(p.participants) ? p.participants : [];
-          let playerIn = '';
-          let playerOut = '';
-          for (const part of parts) {
-            const name = part?.athlete?.displayName || part?.athlete?.fullName || '';
-            const subType = (part?.subType || part?.type || '').toLowerCase();
-            if (subType.includes('in') && !playerIn) playerIn = name;
-            else if (subType.includes('out') && !playerOut) playerOut = name;
-          }
-          // Fallback to athletesInvolved order [in, out]
-          if ((!playerIn || !playerOut) && Array.isArray(p.athletesInvolved)) {
-            if (!playerIn) playerIn = p.athletesInvolved[0]?.displayName || '';
-            if (!playerOut) playerOut = p.athletesInvolved[1]?.displayName || '';
-          }
-          if (playerIn && playerOut) {
-            target.push({ playerIn, playerOut, minute });
-          }
-        }
-
         return {
           homeTeam: home.team?.displayName || '',
           awayTeam: away.team?.displayName || '',
@@ -346,8 +315,6 @@ serve(async (req) => {
           awayGoals: awayGoals.length ? awayGoals : undefined,
           homeLineup: homeLineup.length ? homeLineup : undefined,
           awayLineup: awayLineup.length ? awayLineup : undefined,
-          homeSubs: homeSubs.length ? homeSubs : undefined,
-          awaySubs: awaySubs.length ? awaySubs : undefined,
           homeCoach, awayCoach,
         };
       } catch (e) {
@@ -475,12 +442,6 @@ serve(async (req) => {
             if (lineupError) console.error(`[auto-sync-football][${source}] lineup insert error`, lineupError);
             else console.log(`[auto-sync-football][${source}] inserted ${lineupInserts.length} players`);
           }
-        }
-        // Mark lineup_announced when both teams have ≥11 starters (non-bench)
-        const startersA = (lineupTeamA || []).filter(p => !p.isSub).length;
-        const startersB = (lineupTeamB || []).filter(p => !p.isSub).length;
-        if (startersA >= 11 && startersB >= 11) {
-          await supabase.from('matches').update({ lineup_announced: true }).eq('id', dbMatch.id);
         }
       }
 
