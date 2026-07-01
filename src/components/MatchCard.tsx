@@ -1,4 +1,4 @@
-import { Match, useMatchInnings, GoalEvent } from "@/hooks/useSportsData";
+import { Match, useMatchInnings, useMatchLineupPresence, GoalEvent } from "@/hooks/useSportsData";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -166,6 +166,20 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
 
   // Fetch innings for cricket matches
   const { data: innings } = useMatchInnings(isCricket ? match.id : undefined);
+
+  // Lineup presence for cricket + football
+  const { data: hasLineup } = useMatchLineupPresence((isCricket || isFootball) ? match.id : undefined);
+
+  // Show "Lineup Announced" from when XI is available until 10 minutes after kickoff
+  const showLineupAnnounced = useMemo(() => {
+    if (!hasLineup) return false;
+    if (displayStatus === 'completed' || displayStatus === 'abandoned' || displayStatus === 'postponed') return false;
+    if (displayStatus === 'upcoming') return true;
+    // Live: only within first 10 minutes after kickoff
+    if (!match.match_start_time) return true;
+    const elapsedMin = (Date.now() - new Date(match.match_start_time).getTime()) / 60000;
+    return elapsedMin < 10;
+  }, [hasLineup, displayStatus, match.match_start_time]);
   
   // Fetch toss for all cricket matches - show as soon as toss is published
   const shouldFetchToss = isCricket;
@@ -397,6 +411,11 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
               {sportName}
             </Badge>
             <div className="flex items-center gap-2">
+              {showLineupAnnounced && (
+                <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] px-2 py-0.5 font-semibold uppercase tracking-wide">
+                  Lineup Announced
+                </Badge>
+              )}
               {match.is_priority && (
                 <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
               )}

@@ -612,6 +612,25 @@ export const useMatchInnings = (matchId: string | undefined) => {
   });
 };
 
+// Lightweight lineup presence check (has any playing XI been announced?)
+export const useMatchLineupPresence = (matchId: string | undefined) => {
+  return useQuery({
+    queryKey: ['match_lineup_presence', matchId],
+    queryFn: async () => {
+      if (!matchId) return false;
+      const { count, error } = await supabase
+        .from('match_playing_xi')
+        .select('id', { count: 'exact', head: true })
+        .eq('match_id', matchId)
+        .eq('is_bench', false);
+      if (error) return false;
+      return (count ?? 0) > 0;
+    },
+    enabled: !!matchId,
+    staleTime: 60_000,
+  });
+};
+
 export const useCreateInnings = () => {
   const queryClient = useQueryClient();
   
