@@ -251,8 +251,8 @@ serve(async (req) => {
         const statusType = comp?.status?.type?.name || data?.header?.competitions?.[0]?.status?.type?.name || '';
         let status = 'Scheduled';
         if (/FINAL|FULL_TIME|POSTGAME/i.test(statusType)) status = 'Completed';
-        else if (/HALF/i.test(statusType)) status = 'Half Time';
-        else if (/IN_PROGRESS|FIRST_HALF|SECOND_HALF|EXTRA|LIVE/i.test(statusType)) status = 'Live';
+        else if (/HALFTIME|HALF_TIME|END_OF_1ST_HALF/i.test(statusType)) status = 'Half Time';
+        else if (/IN_PROGRESS|FIRST_HALF|SECOND_HALF|EXTRA|LIVE|SHOOTOUT/i.test(statusType)) status = 'Live';
         const clock = comp?.status?.displayClock || null;
 
         // Lineups + coaches from rosters
@@ -283,23 +283,55 @@ serve(async (req) => {
           if (coachName) { if (isHome) homeCoach = coachName; else awayCoach = coachName; }
         }
 
-        // Goals from scoringPlays / details
+        // Goals + substitutions from keyEvents (preferred) with scoringPlays fallback
         const homeGoals: GoalEvent[] = [];
         const awayGoals: GoalEvent[] = [];
+        const homeSubs: SubstitutionEvent[] = [];
+        const awaySubs: SubstitutionEvent[] = [];
         const homeTeamId = home.team?.id;
-        const plays = data?.scoringPlays || [];
-        for (const p of plays) {
+        const keyEvents = data?.keyEvents || [];
+        for (const p of keyEvents) {
+          const evType = String(p?.type?.type || '').toLowerCase();
+          const evText = String(p?.type?.text || '').toLowerCase();
           const tid = p.team?.id;
-          const isHomeGoal = tid && String(tid) === String(homeTeamId);
-          const target = isHomeGoal ? homeGoals : awayGoals;
-          const minute = p.clock?.displayValue || (p.period?.displayValue ?? '');
-          const player = p?.athletesInvolved?.[0]?.displayName || p?.participants?.[0]?.athlete?.displayName || '';
-          if (!player) continue;
-          const txt = (p?.type?.text || p?.text || '').toLowerCase();
-          let type: 'goal' | 'penalty' | 'own_goal' = 'goal';
-          if (txt.includes('penalty')) type = 'penalty';
-          else if (txt.includes('own')) type = 'own_goal';
-          target.push({ player, minute: String(minute).replace("'", ''), type });
+          const isHomeSide = tid && String(tid) === String(homeTeamId);
+          const minute = String(p.clock?.displayValue || '').replace("'", '');
+
+          // Goals: type starts with "goal" (goal, goal---header, goal---penalty, etc.)
+          if (evType.startsWith('goal') || p?.scoringPlay === true) {
+            const player = p?.participants?.[0]?.athlete?.displayName || p?.athletesInvolved?.[0]?.displayName || '';
+            if (!player) continue;
+            const assist = p?.participants?.[1]?.athlete?.displayName || undefined;
+            const txt = (evText + ' ' + String(p?.text || '')).toLowerCase();
+            let type: 'goal' | 'penalty' | 'own_goal' = 'goal';
+            if (evType.includes('penalty') || txt.includes('penalty')) type = 'penalty';
+            else if (evType.includes('own') || txt.includes('own goal')) type = 'own_goal';
+            const target = isHomeSide ? homeGoals : awayGoals;
+            target.push({ player, minute, type, assist });
+          } else if (evType === 'substitution' || evText === 'substitution') {
+            const playerIn = p?.participants?.[0]?.athlete?.displayName || '';
+            const playerOut = p?.participants?.[1]?.athlete?.displayName || '';
+            if (!playerIn || !playerOut) continue;
+            const target = isHomeSide ? homeSubs : awaySubs;
+            target.push({ playerIn, playerOut, minute });
+          }
+        }
+
+        // Fallback: legacy scoringPlays if keyEvents was empty
+        if (homeGoals.length === 0 && awayGoals.length === 0) {
+          for (const p of (data?.scoringPlays || [])) {
+            const tid = p.team?.id;
+            const isHomeGoal = tid && String(tid) === String(homeTeamId);
+            const target = isHomeGoal ? homeGoals : awayGoals;
+            const minute = p.clock?.displayValue || (p.period?.displayValue ?? '');
+            const player = p?.athletesInvolved?.[0]?.displayName || p?.participants?.[0]?.athlete?.displayName || '';
+            if (!player) continue;
+            const txt = (p?.type?.text || p?.text || '').toLowerCase();
+            let type: 'goal' | 'penalty' | 'own_goal' = 'goal';
+            if (txt.includes('penalty')) type = 'penalty';
+            else if (txt.includes('own')) type = 'own_goal';
+            target.push({ player, minute: String(minute).replace("'", ''), type });
+          }
         }
 
         return {
@@ -315,6 +347,8 @@ serve(async (req) => {
           awayGoals: awayGoals.length ? awayGoals : undefined,
           homeLineup: homeLineup.length ? homeLineup : undefined,
           awayLineup: awayLineup.length ? awayLineup : undefined,
+          homeSubs: homeSubs.length ? homeSubs : undefined,
+          awaySubs: awaySubs.length ? awaySubs : undefined,
           homeCoach, awayCoach,
         };
       } catch (e) {
