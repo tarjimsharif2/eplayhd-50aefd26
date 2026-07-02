@@ -452,12 +452,6 @@ const PlayerChip = ({ player, goals, subs, primaryColor, secondaryColor }: Playe
   const scored = goals.filter(g => nameMatch(g.player, player.player_name));
   const subOut = subs.find(s => nameMatch(s.player_out, player.player_name));
   const jerseyNum = player.jersey_number ?? player.batting_order ?? null;
-  // Display: full name if short, otherwise "F. LastName"
-  const parts = player.player_name.trim().split(/\s+/);
-  const displayName =
-    player.player_name.length <= 14 || parts.length === 1
-      ? player.player_name
-      : `${parts[0][0]}. ${parts.slice(1).join(' ')}`;
 
   return (
     <div className="flex flex-col items-center gap-0.5" style={{ minWidth: 52, maxWidth: 74 }}>
@@ -509,7 +503,7 @@ const PlayerChip = ({ player, goals, subs, primaryColor, secondaryColor }: Playe
         className="text-[9px] font-bold text-center leading-tight drop-shadow"
         style={{ maxWidth: 72, color: 'white', wordBreak: 'break-word' }}
       >
-        {displayName}
+        {player.player_name}
       </span>
 
       {/* Position label */}
