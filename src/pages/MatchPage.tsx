@@ -295,6 +295,12 @@ const MatchPage = () => {
                       <p>Loading streaming servers...</p>
                     </div>
                   </div>
+                ) : (publicSettings as any)?.default_iframe_url ? (
+                  <VideoPlayer
+                    key="default-iframe"
+                    url={(publicSettings as any).default_iframe_url}
+                    type="iframe"
+                  />
                 ) : (
                   <div className="aspect-video bg-muted flex items-center justify-center">
                     <div className="text-center text-muted-foreground">

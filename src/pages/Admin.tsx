@@ -320,6 +320,8 @@ const Admin = () => {
     slider_duration_seconds: 6,
     // Video player countdown before iframe loads
     player_load_time_seconds: 0,
+    // Default iframe fallback when no server exists
+    default_iframe_url: '',
     // Homepage completed matches days
     homepage_completed_days: 2,
     // Homepage channels limit
@@ -379,6 +381,7 @@ const Admin = () => {
         custom_footer_code: siteSettings.custom_footer_code || '',
         slider_duration_seconds: (siteSettings as any).slider_duration_seconds || 6,
         player_load_time_seconds: (siteSettings as any).player_load_time_seconds ?? 0,
+        default_iframe_url: (siteSettings as any).default_iframe_url ?? '',
         homepage_completed_days: (siteSettings as any).homepage_completed_days || 2,
         homepage_channels_limit: (siteSettings as any).homepage_channels_limit || 8,
         admin_slug: (siteSettings as any).admin_slug || 'admin',
@@ -1686,6 +1689,7 @@ const Admin = () => {
         // Banner slider settings
         slider_duration_seconds: siteSettingsForm.slider_duration_seconds || 6,
         player_load_time_seconds: (siteSettingsForm as any).player_load_time_seconds ?? 0,
+        default_iframe_url: (siteSettingsForm as any).default_iframe_url || null,
         // Homepage completed matches days
         homepage_completed_days: (siteSettingsForm as any).homepage_completed_days || 2,
         // Homepage channels limit
@@ -4746,6 +4750,16 @@ const Admin = () => {
                             onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, player_load_time_seconds: Math.max(0, parseInt(e.target.value) || 0) } as any)}
                           />
                           <p className="text-xs text-muted-foreground">Countdown shown before the video iframe loads (0 = instant, like Dooplay)</p>
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <Label>Default Iframe URL (Fallback Player)</Label>
+                          <Input
+                            type="url"
+                            placeholder="https://example.com/player.html"
+                            value={(siteSettingsForm as any).default_iframe_url ?? ''}
+                            onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, default_iframe_url: e.target.value } as any)}
+                          />
+                          <p className="text-xs text-muted-foreground">Shown on match pages that have no streaming servers. Hidden automatically once any server is added. No name, no server list.</p>
                         </div>
                         <div className="space-y-2">
                           <Label>Completed Matches Display (days)</Label>

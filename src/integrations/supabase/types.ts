@@ -1143,6 +1143,7 @@ export type Database = {
           cricket_api_key: string | null
           custom_footer_code: string | null
           custom_header_code: string | null
+          default_iframe_url: string | null
           disclaimer_text: string | null
           facebook_app_id: string | null
           favicon_url: string | null
@@ -1214,6 +1215,7 @@ export type Database = {
           cricket_api_key?: string | null
           custom_footer_code?: string | null
           custom_header_code?: string | null
+          default_iframe_url?: string | null
           disclaimer_text?: string | null
           facebook_app_id?: string | null
           favicon_url?: string | null
@@ -1285,6 +1287,7 @@ export type Database = {
           cricket_api_key?: string | null
           custom_footer_code?: string | null
           custom_header_code?: string | null
+          default_iframe_url?: string | null
           disclaimer_text?: string | null
           facebook_app_id?: string | null
           favicon_url?: string | null
@@ -1357,6 +1360,7 @@ export type Database = {
           cricket_api_enabled: boolean | null
           custom_footer_code: string | null
           custom_header_code: string | null
+          default_iframe_url: string | null
           disclaimer_text: string | null
           facebook_app_id: string | null
           favicon_url: string | null
@@ -1418,6 +1422,7 @@ export type Database = {
           cricket_api_enabled?: boolean | null
           custom_footer_code?: string | null
           custom_header_code?: string | null
+          default_iframe_url?: string | null
           disclaimer_text?: string | null
           facebook_app_id?: string | null
           favicon_url?: string | null
@@ -1479,6 +1484,7 @@ export type Database = {
           cricket_api_enabled?: boolean | null
           custom_footer_code?: string | null
           custom_header_code?: string | null
+          default_iframe_url?: string | null
           disclaimer_text?: string | null
           facebook_app_id?: string | null
           favicon_url?: string | null
