@@ -177,7 +177,15 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       clearkey_key: null,
       is_working: true,
       original_display_order: null,
-    };
+    } as Record<string, unknown>;
+
+    // If editing an auto-synced server and the name has been changed by the user,
+    // lock the name so future JSON syncs don't overwrite it.
+    if (editingServer && (editingServer as any).auto_source_id) {
+      if (serverForm.server_name !== editingServer.server_name) {
+        serverData.name_locked = true;
+      }
+    }
 
     try {
       if (editingServer) {
