@@ -26,6 +26,8 @@ interface PlayerInfo {
   isCaptain?: boolean;
   playerImage?: string;
   isSub?: boolean;
+  formation?: string;
+  formationPlace?: number;
 }
 
 interface FootballMatch {
