@@ -63,7 +63,8 @@ const EventPage = () => {
 
   const startDate = new Date(event.event_start_time);
   const hasServers = (servers?.length ?? 0) > 0;
-  const defaultIframe = settings?.default_iframe_enabled ? settings?.default_iframe_url : null;
+  const s: any = settings;
+  const defaultIframe = s?.default_iframe_enabled ? s?.default_iframe_url : null;
 
   return (
     <div className="min-h-screen bg-background">
