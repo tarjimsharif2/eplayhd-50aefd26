@@ -539,14 +539,16 @@ const FootballPitchLineup = ({
   const pitchA = useMemo(() => buildCurrentPitch(teamAPlayers), [teamAPlayers]);
   const pitchB = useMemo(() => buildCurrentPitch(teamBPlayers), [teamBPlayers]);
 
-  const groupsA = useMemo(() => groupPlayersByRow(pitchA), [pitchA]);
-  const groupsB = useMemo(() => groupPlayersByRow(pitchB), [pitchB]);
+  const espnFormationA = useMemo(() => detectFormation(pitchA), [pitchA]);
+  const espnFormationB = useMemo(() => detectFormation(pitchB), [pitchB]);
 
-  const formationA = useMemo(() => getFormation(pitchA), [pitchA]);
-  const formationB = useMemo(() => getFormation(pitchB), [pitchB]);
+  const layoutA = useMemo(() => buildRowsForFormation(pitchA, espnFormationA), [pitchA, espnFormationA]);
+  const layoutB = useMemo(() => buildRowsForFormation(pitchB, espnFormationB), [pitchB, espnFormationB]);
 
-  const rowsA = ([0, 1, 2, 3, 4, 5] as const).filter(r => (groupsA[r] ?? []).length > 0);
-  const rowsB = ([0, 1, 2, 3, 4, 5] as const).filter(r => (groupsB[r] ?? []).length > 0);
+  const rowsA = layoutA.rows;
+  const rowsB = layoutB.rows;
+  const formationA = espnFormationA || layoutA.formation;
+  const formationB = espnFormationB || layoutB.formation;
 
 
 
