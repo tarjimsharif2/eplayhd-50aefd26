@@ -283,7 +283,7 @@ const detectFormation = (players: Player[]): string | null => {
   return null;
 };
 
-/* ─── Build pitch rows honoring ESPN formation (e.g. "4-2-3-1") ─── */
+/* ─── Build pitch rows honoring ESPN formation + ESPN positions ─── */
 const buildRowsForFormation = (
   starters: Player[],
   formation: string | null,
@@ -295,33 +295,34 @@ const buildRowsForFormation = (
     ? formation.split('-').map(n => parseInt(n, 10)).filter(n => n > 0)
     : null;
 
-  // ─── Preferred path: trust ESPN's formation_place (1..11) ───
-  // Place 1 = GK, then defenders → midfielders → forwards in ESPN order.
-  const withPlace = starters.filter(p => p.formation_place != null);
-  const canUsePlace =
-    sizes !== null &&
-    withPlace.length === starters.length &&
-    starters.length === 1 + sizes.reduce((a, b) => a + b, 0);
+  // Preferred: ESPN formation defines row sizes, ESPN position defines the row/side.
+  // Do NOT slice by raw formation_place alone: ESPN can number a CM before CBs.
+  const parsed = starters.map(p => ({
+    player: p,
+    ...parsePosition(p.player_role),
+    place: p.formation_place ?? 999,
+  }));
+  const gk = parsed
+    .filter(p => p.row === 0 || p.place === 1)
+    .sort((a, b) => a.place - b.place);
+  const outfield = parsed
+    .filter(p => p.row !== 0 && p.place !== 1)
+    .sort((a, b) => a.row - b.row || a.sideOrder - b.sideOrder || a.place - b.place);
 
-  if (canUsePlace && sizes) {
-    const ordered = [...starters].sort(
-      (a, b) => (a.formation_place ?? 999) - (b.formation_place ?? 999),
-    );
-    // GK
-    rows.push([{ player: ordered[0], sideOrder: 50 }]);
-    let cursor = 1;
+  if (sizes && gk.length >= 1 && sizes.reduce((a, b) => a + b, 0) === outfield.length) {
+    rows.push([{ player: gk[0].player, sideOrder: 50 }]);
+    let cursor = 0;
     for (const size of sizes) {
-      const slice = ordered.slice(cursor, cursor + size);
-      // Spread evenly left→right across the row
-      const rowItems = slice.map((player, i) => ({
-        player,
-        sideOrder: size === 1 ? 50 : 10 + (80 * i) / (size - 1),
-      }));
-      rows.push(rowItems);
+      const slice = outfield.slice(cursor, cursor + size);
+      rows.push(
+        slice.map(({ player, sideOrder }) => ({
+          player,
+          sideOrder,
+        })),
+      );
       cursor += size;
     }
-    const outSizes = rows.slice(1).map(r => r.length);
-    return { rows, formation: outSizes.join('-') };
+    return { rows, formation };
   }
 
   // ─── Fallback: parse position strings ───
