@@ -2891,7 +2891,7 @@ const Admin = () => {
                     ?.filter(m => m.page_type === 'page')
                     .filter((match) => {
                       // Status filter
-                      if (streamingStatusFilter !== 'all' && match.status !== streamingStatusFilter) return false;
+                      if (streamingStatusFilter !== 'all' && getEffectiveMatchStatus(match) !== streamingStatusFilter) return false;
                       // Sport filter
                       if (streamingSportFilter !== 'all' && match.sport_id !== streamingSportFilter) return false;
                       // Search filter
