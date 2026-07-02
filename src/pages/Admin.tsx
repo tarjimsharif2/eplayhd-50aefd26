@@ -4352,6 +4352,10 @@ const Admin = () => {
               <MenuManager />
             </TabsContent>
 
+            <TabsContent value="bottom-nav" className="space-y-6">
+              <BottomNavManager />
+            </TabsContent>
+
             {/* Channels Tab */}
             <TabsContent value="channels" className="space-y-6">
               <ChannelsManager />
