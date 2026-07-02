@@ -490,7 +490,17 @@ const MatchList = () => {
           />
         </div>
 
-        {filteredMatches.length > 0 || (events && events.length > 0) ? (
+        {isLoading ? (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-2xl bg-muted/30 animate-pulse"
+                style={{ aspectRatio: '4 / 3' }}
+              />
+            ))}
+          </div>
+        ) : filteredMatches.length > 0 || (events && events.length > 0) ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {(events ?? [])
               .filter((e) => {
