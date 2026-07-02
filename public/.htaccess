@@ -7,15 +7,32 @@
   RewriteRule . /index.html [L]
 </IfModule>
 
-# Cache static assets
+# Never cache HTML entry point (always fetch fresh references to hashed assets)
+<FilesMatch "\.(html|htm)$">
+  <IfModule mod_headers.c>
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </IfModule>
+</FilesMatch>
+
+# Cache static assets with hashed filenames (immutable — safe because Vite changes filename on change)
 <IfModule mod_expires.c>
   ExpiresActive On
   ExpiresByType image/jpeg "access plus 1 year"
   ExpiresByType image/png "access plus 1 year"
   ExpiresByType image/svg+xml "access plus 1 year"
-  ExpiresByType text/css "access plus 1 month"
-  ExpiresByType application/javascript "access plus 1 month"
+  # Hashed JS/CSS from Vite — long cache OK since filename includes hash
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
 </IfModule>
+
+# Also add immutable flag for hashed assets
+<FilesMatch "\.[0-9a-f]{8,}\.(js|css)$">
+  <IfModule mod_headers.c>
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </IfModule>
+</FilesMatch>
 
 # Gzip compression
 <IfModule mod_deflate.c>
