@@ -202,17 +202,26 @@ serve(async (req) => {
       throw matchError;
     }
 
-    // Filter: completed within 48h, live always, upcoming within 60 minutes
+    // Backfill: find completed matches whose playing XI is missing formation_place
+    const { data: backfillRows } = await supabase
+      .from('match_playing_xi')
+      .select('match_id')
+      .is('formation_place', null);
+    const backfillIds = new Set((backfillRows || []).map((r: any) => r.match_id));
+
+    // Filter: completed within 48h (or needs backfill), live always, upcoming within 60 minutes
     const footballMatches = (liveMatches || []).filter(m => {
-      if (m.status === 'completed' && m.match_start_time) {
-        const matchTime = new Date(m.match_start_time);
-        const hoursSinceMatch = (now.getTime() - matchTime.getTime()) / (1000 * 60 * 60);
-        return hoursSinceMatch <= 48;
+      if (m.status === 'completed') {
+        if (m.match_start_time) {
+          const hoursSinceMatch = (now.getTime() - new Date(m.match_start_time).getTime()) / (1000 * 60 * 60);
+          if (hoursSinceMatch <= 48) return true;
+        }
+        // Older completed matches: only re-sync if they still need formation backfill
+        return !!m.espn_event_id && backfillIds.has(m.id);
       }
       if (m.status === 'upcoming' && m.match_start_time) {
         const matchTime = new Date(m.match_start_time);
         const minutesUntilMatch = (matchTime.getTime() - now.getTime()) / (1000 * 60);
-        // Sync upcoming matches within 60 minutes to get early lineup data
         return minutesUntilMatch <= 60 && minutesUntilMatch >= -10;
       }
       return true; // Live matches always sync
