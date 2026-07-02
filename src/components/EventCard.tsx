@@ -15,9 +15,21 @@ interface Props {
 const EventCard = ({ event, index = 0 }: Props) => {
   const navigate = useNavigate();
   const [status, setStatus] = useState(() => getEffectiveEventStatus(event));
+  const [countdown, setCountdown] = useState('00:00:00');
 
   useEffect(() => {
-    const t = setInterval(() => setStatus(getEffectiveEventStatus(event)), 30_000);
+    const tick = () => {
+      setStatus(getEffectiveEventStatus(event));
+      const diff = new Date(event.event_start_time).getTime() - Date.now();
+      if (diff <= 0) { setCountdown('00:00:00'); return; }
+      const totalSec = Math.floor(diff / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      setCountdown(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`);
+    };
+    tick();
+    const t = setInterval(tick, 1000);
     return () => clearInterval(t);
   }, [event]);
 
@@ -89,7 +101,9 @@ const EventCard = ({ event, index = 0 }: Props) => {
       {status === 'upcoming' && (
         <div className="px-4 pb-4 pt-2 border-t border-border/50">
           <p className="text-xs text-center text-muted-foreground mb-2">Starts in</p>
-          <FlipClock targetDate={startDate} />
+          <div className="flex justify-center">
+            <FlipClock time={countdown} />
+          </div>
         </div>
       )}
 
