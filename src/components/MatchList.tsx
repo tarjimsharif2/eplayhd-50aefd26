@@ -432,16 +432,8 @@ const MatchList = () => {
     return statusMap;
   }, [matches]);
 
-  if (isLoading) {
-    return (
-      <section className="py-12 md:py-20">
-        <div className="container mx-auto px-4 text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
-          <p className="text-muted-foreground mt-4">Loading matches...</p>
-        </div>
-      </section>
-    );
-  }
+  // Skip the fullscreen loader; render the layout (BannerSlider + filters +
+  // skeleton grid) immediately to prevent large layout shifts once data lands.
 
   if (error) {
     return (
@@ -498,7 +490,17 @@ const MatchList = () => {
           />
         </div>
 
-        {filteredMatches.length > 0 || (events && events.length > 0) ? (
+        {isLoading ? (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-2xl bg-muted/30 animate-pulse"
+                style={{ aspectRatio: '4 / 3' }}
+              />
+            ))}
+          </div>
+        ) : filteredMatches.length > 0 || (events && events.length > 0) ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {(events ?? [])
               .filter((e) => {

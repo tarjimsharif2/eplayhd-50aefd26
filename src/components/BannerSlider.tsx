@@ -186,6 +186,14 @@ const BannerSlider = () => {
   }, [banners, sliderDuration, currentIndex]);
 
   if (isLoading || !banners || banners.length === 0) {
+    // Reserve aspect-ratio space to prevent CLS while banners load.
+    // If no banners exist at all after loading, still render an invisible
+    // placeholder briefly — collapses via parent conditional if desired.
+    if (isLoading) {
+      return (
+        <div className="relative w-full overflow-hidden rounded-2xl premium-shadow-lg aspect-[16/9] bg-muted/30" />
+      );
+    }
     return null;
   }
 

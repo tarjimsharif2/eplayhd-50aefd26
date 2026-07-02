@@ -50,7 +50,7 @@ const MultiAdSlot = ({ position, className = '', fallbackPosition }: MultiAdSlot
   const containerRef = useRef<HTMLDivElement>(null);
   const hasExecuted = useRef(false);
   const hasTrackedImpression = useRef(false);
-  const [isEmpty, setIsEmpty] = useState(false);
+  const [isEmpty, setIsEmpty] = useState(true);
   const { isBlocked, trackAdClick } = useAdClickProtectionContext();
   const { isAdmin } = useCurrentUserPermissions();
 
@@ -140,7 +140,6 @@ const MultiAdSlot = ({ position, className = '', fallbackPosition }: MultiAdSlot
 
     return () => {
       hasExecuted.current = false;
-      setIsEmpty(false);
       container.removeEventListener('click', handleClick);
     };
   }, [adSlots, legacyAdCode, position, isBlocked, trackAdClick]);
@@ -148,7 +147,7 @@ const MultiAdSlot = ({ position, className = '', fallbackPosition }: MultiAdSlot
   useEffect(() => {
     hasExecuted.current = false;
     hasTrackedImpression.current = false;
-    setIsEmpty(false);
+    setIsEmpty(true);
   }, [position]);
 
   // Collapse if the ad slots don't render any visible content
@@ -165,7 +164,7 @@ const MultiAdSlot = ({ position, className = '', fallbackPosition }: MultiAdSlot
         }
         return false;
       };
-      setIsEmpty(!walk(el));
+      if (walk(el)) setIsEmpty(false);
     };
     const timers = [setTimeout(check, 800), setTimeout(check, 2500), setTimeout(check, 5000)];
     return () => timers.forEach(clearTimeout);
