@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { useStreamingServers, StreamingServer } from '@/hooks/useStreamingServers';
 import { useMarkServerNotWorking, useMarkServerWorking } from '@/hooks/useStreamServerStatus';
+import { usePreconnectServers } from '@/hooks/usePreconnectServers';
 import { usePublicSiteSettings } from '@/hooks/usePublicSiteSettings';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
@@ -38,6 +39,8 @@ const MatchPage = () => {
   const { data: siteSettings } = useSiteSettings();
   const { data: publicSettings } = usePublicSiteSettings();
   const { data: servers, isLoading: serversLoading } = useStreamingServers(match?.id || '');
+  // Warm up DNS/TLS for every server so switching is instant.
+  usePreconnectServers((servers || []).map((s) => s.url));
   const markNotWorking = useMarkServerNotWorking();
   const markWorking = useMarkServerWorking();
   
