@@ -322,6 +322,7 @@ const Admin = () => {
     player_load_time_seconds: 0,
     // Default iframe fallback when no server exists
     default_iframe_url: '',
+    default_iframe_enabled: false,
     // Homepage completed matches days
     homepage_completed_days: 2,
     // Homepage channels limit
