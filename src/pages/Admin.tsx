@@ -4751,6 +4751,16 @@ const Admin = () => {
                           />
                           <p className="text-xs text-muted-foreground">Countdown shown before the video iframe loads (0 = instant, like Dooplay)</p>
                         </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <Label>Default Iframe URL (Fallback Player)</Label>
+                          <Input
+                            type="url"
+                            placeholder="https://example.com/player.html"
+                            value={(siteSettingsForm as any).default_iframe_url ?? ''}
+                            onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, default_iframe_url: e.target.value } as any)}
+                          />
+                          <p className="text-xs text-muted-foreground">Shown on match pages that have no streaming servers. Hidden automatically once any server is added. No name, no server list.</p>
+                        </div>
                         <div className="space-y-2">
                           <Label>Completed Matches Display (days)</Label>
                           <Input 
