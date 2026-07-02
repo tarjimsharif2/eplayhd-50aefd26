@@ -255,7 +255,7 @@ const MatchPage = () => {
       {/* Header Ad */}
       <AdSlot position="header" className="container mx-auto px-4 py-2" />
       
-      <main className="flex-1 py-6">
+      <main className="flex-1 py-5 md:py-8">
         <div className="container mx-auto px-4 max-w-6xl">
           {/* Sponsor Notice - Before Stream */}
           <SponsorNotice position="before_stream" matchId={match.id} />
@@ -266,7 +266,7 @@ const MatchPage = () => {
             animate={{ opacity: 1, y: 0 }}
             className="mb-6"
           >
-            <Card className="overflow-hidden border-border/50 bg-card/80 backdrop-blur">
+            <Card className="match-video-surface overflow-hidden rounded-xl md:rounded-2xl backdrop-blur">
               <CardContent className="p-0">
                 {activeServer ? (
                   <VideoPlayer 
@@ -318,14 +318,17 @@ const MatchPage = () => {
               transition={{ delay: 0.1 }}
               className="mb-6"
             >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Select Server</span>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-35" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
+                  </span>
+                  <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Select Server</span>
                 </div>
-                <span className="text-[10px] font-semibold text-muted-foreground/60">{servers.length} Available</span>
+                <span className="rounded-full border border-border/60 bg-card/70 px-2.5 py-1 text-[10px] font-semibold text-muted-foreground/80">{servers.length} Available</span>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
                 {servers.map((server) => {
                   const isActive = activeServer?.id === server.id;
                   return (
@@ -333,14 +336,18 @@ const MatchPage = () => {
                       key={server.id}
                       onClick={() => setActiveServer(server)}
                       className={cn(
-                        "relative flex items-center justify-center gap-1.5 h-9 px-2 rounded-lg text-[11px] font-semibold tracking-tight transition-all active:scale-[0.97]",
+                        "match-server-button relative flex items-center justify-center gap-2 h-12 md:h-14 px-3 rounded-xl text-sm font-bold tracking-normal transition-all active:scale-[0.98]",
                         isActive
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "bg-card border border-border text-foreground hover:bg-accent hover:border-primary/30"
+                          ? "match-server-button-active"
+                          : "text-foreground"
                       )}
                     >
+                      <span className={cn(
+                        "h-2 w-2 shrink-0 rounded-full",
+                        isActive ? "bg-primary-foreground/90" : "bg-status-completed"
+                      )} />
                       {isActive && (
-                        <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                         </svg>
                       )}
