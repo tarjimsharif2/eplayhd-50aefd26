@@ -265,9 +265,12 @@ serve(async (req) => {
         for (const roster of (data?.rosters || [])) {
           const isHome = roster.homeAway === 'home';
           const target = isHome ? homeLineup : awayLineup;
+          const formationName = roster?.formation?.name || roster?.formation || null;
           for (const entry of (roster.roster || [])) {
             const a = entry.athlete;
             if (!a) continue;
+            const fpRaw = entry.formationPlace;
+            const fp = fpRaw != null && fpRaw !== '' ? parseInt(String(fpRaw), 10) : null;
             target.push({
               name: a.displayName || a.fullName || 'Unknown',
               position: entry.position?.abbreviation || a.position?.abbreviation || '',
@@ -275,6 +278,8 @@ serve(async (req) => {
               isCaptain: !!entry.captain,
               playerImage: pickHeadshot(a),
               isSub: entry.starter === false,
+              formation: formationName || undefined,
+              formationPlace: Number.isFinite(fp as number) && (fp as number) > 0 ? (fp as number) : undefined,
             });
           }
           // Coach (single object or array depending on payload)
