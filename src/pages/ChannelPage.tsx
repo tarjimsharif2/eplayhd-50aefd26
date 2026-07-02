@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useChannelBySlug, useChannelStreamingServers, ChannelStreamingServer, useMarkChannelServerNotWorking, useMarkChannelServerWorking } from '@/hooks/useChannels';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
+import { usePreconnectServers } from '@/hooks/usePreconnectServers';
 import { Tv, Server, Loader2, Radio } from 'lucide-react';
 import { motion } from 'framer-motion';
 import DOMPurify from 'dompurify';
@@ -20,6 +21,7 @@ const ChannelPage = () => {
   const { data: siteSettings } = useSiteSettings();
   const { data: channel, isLoading: channelLoading } = useChannelBySlug(slug || '');
   const { data: servers, isLoading: serversLoading } = useChannelStreamingServers(channel?.id || '');
+  usePreconnectServers((servers || []).map((s: any) => s.server_url));
   const markNotWorking = useMarkChannelServerNotWorking();
   const markWorking = useMarkChannelServerWorking();
 
