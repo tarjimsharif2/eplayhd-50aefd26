@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { usePublicSiteSettings } from '@/hooks/usePublicSiteSettings';
 
 interface StreamHeaders {
   referer?: string | null;
@@ -464,6 +465,27 @@ const VideoPlayer = ({ url, type, headers, onStreamError, onStreamSuccess }: Vid
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const successNotifiedRef = useRef(false);
+
+  // Admin-configurable countdown before the iframe actually mounts (Dooplay-style).
+  const { data: publicSettings } = usePublicSiteSettings();
+  const configuredDelay = Math.max(0, (publicSettings as any)?.player_load_time_seconds ?? 0);
+  const [countdown, setCountdown] = useState<number>(configuredDelay);
+
+  useEffect(() => {
+    if (type !== 'iframe' && type !== 'embed') return;
+    setCountdown(configuredDelay);
+    if (configuredDelay <= 0) return;
+    const interval = setInterval(() => {
+      setCountdown((s) => {
+        if (s <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [url, type, configuredDelay]);
 
   // Handle iframe timeout detection
   useEffect(() => {
