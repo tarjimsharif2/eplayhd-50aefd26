@@ -115,7 +115,16 @@ const useSubstitutions = (matchId: string) => {
         .order('minute', { ascending: true });
       
       if (error) throw error;
-      return data as Substitution[];
+      // Dedupe: sometimes the same substitution is ingested twice (e.g. from
+      // multiple sync sources or minute updates). Collapse identical events.
+      const seen = new Set<string>();
+      const unique = (data as Substitution[]).filter((s) => {
+        const key = `${s.team_id}|${(s.minute || '').toString().replace(/'/g, '').trim()}|${s.player_out?.trim().toLowerCase()}|${s.player_in?.trim().toLowerCase()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      return unique;
     },
     enabled: !!matchId,
   });
