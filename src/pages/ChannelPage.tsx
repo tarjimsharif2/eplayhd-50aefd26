@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useChannelBySlug, useChannelStreamingServers, ChannelStreamingServer, useMarkChannelServerNotWorking, useMarkChannelServerWorking } from '@/hooks/useChannels';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { usePreconnectServers } from '@/hooks/usePreconnectServers';
-import { Tv, Loader2, Radio } from 'lucide-react';
+import { Tv, Server, Loader2, Radio } from 'lucide-react';
 import { motion } from 'framer-motion';
 import DOMPurify from 'dompurify';
 
