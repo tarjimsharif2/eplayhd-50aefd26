@@ -317,6 +317,8 @@ const Admin = () => {
     custom_footer_code: '',
     // Banner slider settings
     slider_duration_seconds: 6,
+    // Video player countdown before iframe loads
+    player_load_time_seconds: 0,
     // Homepage completed matches days
     homepage_completed_days: 2,
     // Homepage channels limit
@@ -375,6 +377,7 @@ const Admin = () => {
         custom_header_code: siteSettings.custom_header_code || '',
         custom_footer_code: siteSettings.custom_footer_code || '',
         slider_duration_seconds: (siteSettings as any).slider_duration_seconds || 6,
+        player_load_time_seconds: (siteSettings as any).player_load_time_seconds ?? 0,
         homepage_completed_days: (siteSettings as any).homepage_completed_days || 2,
         homepage_channels_limit: (siteSettings as any).homepage_channels_limit || 8,
         admin_slug: (siteSettings as any).admin_slug || 'admin',
@@ -1671,6 +1674,7 @@ const Admin = () => {
         custom_footer_code: siteSettingsForm.custom_footer_code || null,
         // Banner slider settings
         slider_duration_seconds: siteSettingsForm.slider_duration_seconds || 6,
+        player_load_time_seconds: (siteSettingsForm as any).player_load_time_seconds ?? 0,
         // Homepage completed matches days
         homepage_completed_days: (siteSettingsForm as any).homepage_completed_days || 2,
         // Homepage channels limit
