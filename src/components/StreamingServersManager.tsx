@@ -24,7 +24,7 @@ import {
   SavedStreamingServer
 } from "@/hooks/useSavedStreamingServers";
 import { Match } from "@/hooks/useSportsData";
-import { Plus, Edit2, Trash2, Tv, Loader2, ExternalLink, Play, Search, BookmarkPlus, Library, Copy, FileText } from "lucide-react";
+import { Plus, Edit2, Trash2, Tv, Loader2, ExternalLink, Play, Search, BookmarkPlus, Library, Copy, FileText, ArrowUp, ArrowDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import HeaderEditor, { HeaderItem, headersToServerForm, serverFormToHeaders } from "@/components/HeaderEditor";
 
@@ -261,6 +261,23 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
     }
   };
 
+  const handleMove = async (index: number, direction: 'up' | 'down') => {
+    if (!servers) return;
+    const sorted = [...servers].sort((a, b) => a.display_order - b.display_order);
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= sorted.length) return;
+    const a = sorted[index];
+    const b = sorted[targetIndex];
+    try {
+      await Promise.all([
+        updateServer.mutateAsync({ id: a.id, display_order: b.display_order }),
+        updateServer.mutateAsync({ id: b.id, display_order: a.display_order }),
+      ]);
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
   const handleSaveToLibrary = async (server: StreamingServer) => {
     try {
       await createSavedServer.mutateAsync({
@@ -448,7 +465,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
             </Card>
           ) : (
             <div className="space-y-3">
-              {servers?.map((server) => (
+              {[...(servers || [])].sort((a, b) => a.display_order - b.display_order).map((server, idx, arr) => (
                 <Card key={server.id} className={`${!server.is_active ? 'opacity-60' : ''}`}>
                   <CardContent className="p-3 sm:p-4">
                     <div className="flex flex-col gap-3">
@@ -467,6 +484,28 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
                         <p className="text-xs text-muted-foreground">Order: {server.display_order}</p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center gap-1 mr-auto">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handleMove(idx, 'up')}
+                            disabled={idx === 0 || updateServer.isPending}
+                            title="Move up"
+                            className="h-8 w-8"
+                          >
+                            <ArrowUp className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handleMove(idx, 'down')}
+                            disabled={idx === arr.length - 1 || updateServer.isPending}
+                            title="Move down"
+                            className="h-8 w-8"
+                          >
+                            <ArrowDown className="w-4 h-4" />
+                          </Button>
+                        </div>
                         <Button
                           variant="outline"
                           size="sm"
