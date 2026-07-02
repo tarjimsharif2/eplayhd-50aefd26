@@ -27,6 +27,19 @@ import ScrollToTop from "./components/ScrollToTop";
 import { AdClickProtectionProvider } from "./components/AdClickProtectionProvider";
 import BottomNav from "./components/BottomNav";
 
+const GlobalBottomNav = () => {
+  const location = useLocation();
+  const { data: settings } = usePublicSiteSettings();
+  const adminSlug = settings?.admin_slug || 'admin';
+  const p = location.pathname;
+  const hidden =
+    p === '/auth' ||
+    p === '/admin' || p.startsWith('/admin/') ||
+    p === `/${adminSlug}` || p.startsWith(`/${adminSlug}/`);
+  if (hidden) return null;
+  return <BottomNav />;
+};
+
 // Maintenance mode wrapper - shows maintenance page for non-admin users
 const MaintenanceWrapper = ({ children }: { children: React.ReactNode }) => {
   const { data: settings, isLoading: settingsLoading } = usePublicSiteSettings();
