@@ -161,6 +161,17 @@ const BannerSlider = () => {
   // Get slider duration from settings (default 6 seconds)
   const sliderDuration = ((siteSettings as any)?.slider_duration_seconds || 6) * 1000;
 
+  // Preload the next banner image so slide transitions are instant
+  useEffect(() => {
+    if (!banners || banners.length <= 1) return;
+    const nextIdx = (currentIndex + 1) % banners.length;
+    const nextUrl = banners[nextIdx]?.image_url;
+    if (nextUrl) {
+      const img = new Image();
+      img.src = nextUrl;
+    }
+  }, [banners, currentIndex]);
+
   // Reset timer whenever currentIndex changes (including manual nav)
   // This ensures the full duration starts AFTER the slide is shown
   useEffect(() => {
@@ -343,6 +354,10 @@ const BannerSlider = () => {
           <img
             src={currentBanner.image_url}
             alt={currentBanner.title}
+            loading="eager"
+            decoding="async"
+            // @ts-expect-error - fetchpriority not yet in React types
+            fetchpriority="high"
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           />
           

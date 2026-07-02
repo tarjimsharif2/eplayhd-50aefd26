@@ -414,12 +414,13 @@ export const useMatches = () => {
       if (error) throw error;
       return data as Match[];
     },
-    staleTime: 0, // Data is immediately stale - allows invalidation to trigger refetch
-    gcTime: 0, // Don't cache old data at all
-    refetchInterval: 30000, // Backup polling every 30 seconds in case realtime misses
-    refetchOnWindowFocus: true, // Refetch fresh data on window focus
-    refetchOnMount: 'always' as const, // Always fetch fresh data on mount
-    refetchOnReconnect: 'always' as const, // Always refetch when network reconnects
+    // Serve cached data instantly, revalidate in background. Realtime + interval keep it fresh.
+    staleTime: 15_000,
+    gcTime: 5 * 60_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: 'always' as const,
   });
 };
 
@@ -527,6 +528,10 @@ export const useActiveBanners = () => {
       if (error) throw error;
       return data as Banner[];
     },
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 };
 
