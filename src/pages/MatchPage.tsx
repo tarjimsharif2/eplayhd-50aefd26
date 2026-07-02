@@ -24,8 +24,9 @@ import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import { supabase } from '@/integrations/supabase/client';
 import { Match, GoalEvent } from '@/hooks/useSportsData';
-import { MapPin, Clock, Calendar, Tv, Server, Loader2, Radio, Trophy, ChevronDown } from 'lucide-react';
+import { MapPin, Clock, Calendar, Tv, Loader2, Radio, Trophy, ChevronDown } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 const MatchPage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -317,21 +318,36 @@ const MatchPage = () => {
               transition={{ delay: 0.1 }}
               className="mb-6"
             >
-              <div className="flex items-center gap-2 mb-3">
-                <Server className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-muted-foreground">Select Server:</span>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Select Server</span>
+                </div>
+                <span className="text-[10px] font-semibold text-muted-foreground/60">{servers.length} Available</span>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {servers.map((server) => (
-                  <Button
-                    key={server.id}
-                    variant={activeServer?.id === server.id ? 'gradient' : 'outline'}
-                    onClick={() => setActiveServer(server)}
-                    className="min-w-[100px]"
-                  >
-                    {server.server_name}
-                  </Button>
-                ))}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                {servers.map((server) => {
+                  const isActive = activeServer?.id === server.id;
+                  return (
+                    <button
+                      key={server.id}
+                      onClick={() => setActiveServer(server)}
+                      className={cn(
+                        "relative flex items-center justify-center gap-1.5 h-9 px-2 rounded-lg text-[11px] font-semibold tracking-tight transition-all active:scale-[0.97]",
+                        isActive
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "bg-card border border-border text-foreground hover:bg-accent hover:border-primary/30"
+                      )}
+                    >
+                      {isActive && (
+                        <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                      <span className="truncate">{server.server_name}</span>
+                    </button>
+                  );
+                })}
               </div>
             </motion.div>
           )}
