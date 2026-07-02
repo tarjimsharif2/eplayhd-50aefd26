@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { usePublicSiteSettings } from "@/hooks/usePublicSiteSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { optimizeImage, optimizeSrcSet } from "@/lib/imageUrl";
 
 // Hook to check which tournaments have live matches
 const useTournamentLiveStatus = (tournamentIds: string[]) => {
