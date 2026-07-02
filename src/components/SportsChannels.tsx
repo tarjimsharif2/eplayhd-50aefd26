@@ -3,6 +3,7 @@ import { useChannels } from '@/hooks/useChannels';
 import { usePublicSiteSettings } from '@/hooks/usePublicSiteSettings';
 import { Tv, Radio, Loader2, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { optimizeImage } from '@/lib/imageUrl';
 
 const SportsChannels = () => {
   const { data: channels, isLoading } = useChannels();
@@ -63,8 +64,10 @@ const SportsChannels = () => {
                 >
                   {channel.logo_url ? (
                     <img 
-                      src={channel.logo_url} 
+                            src={optimizeImage(channel.logo_url, { width: 80, quality: 75 })}
                       alt={channel.name} 
+                            loading="lazy"
+                            decoding="async"
                       className="w-8 h-8 object-contain"
                     />
                   ) : (
