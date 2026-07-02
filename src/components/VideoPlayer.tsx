@@ -618,7 +618,6 @@ const VideoPlayer = ({ url, type, headers, onStreamError, onStreamSuccess }: Vid
           <p className="text-white/70 text-sm">Player loading in {countdown}s…</p>
         </div>
       )}
-      {countdown === 0 && (
       <iframe
         ref={iframeRef}
         src={iframeSrc}
@@ -646,7 +645,6 @@ const VideoPlayer = ({ url, type, headers, onStreamError, onStreamSuccess }: Vid
         referrerPolicy="unsafe-url"
         loading="eager"
       />
-      )}
       
       {/* Direct embed toggle for iframe streams with headers */}
       {hasCustomHeaders(headers) && (type === 'iframe' || type === 'embed') && (
