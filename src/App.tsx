@@ -178,7 +178,7 @@ const App = () => (
               <ScrollToTop />
               <GoogleAnalyticsProvider>
                 <MaintenanceWrapper>
-                <Suspense fallback={null}>
+                <Suspense fallback={<div style={{ minHeight: '100vh' }} />}>
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/admin" element={<ProtectedAdminRoute />} />
