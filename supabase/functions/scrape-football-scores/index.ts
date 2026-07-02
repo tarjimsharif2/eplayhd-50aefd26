@@ -6,6 +6,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Global per-invocation deadline to stay under edge-runtime 150s idle timeout.
+// Hard deadline stops all remote work; soft deadline skips optional enrichment.
+let requestDeadline = 0;
+let softDeadline = 0;
+const isPastDeadline = () => requestDeadline > 0 && Date.now() >= requestDeadline;
+const isPastSoftDeadline = () => softDeadline > 0 && Date.now() >= softDeadline;
+
 interface GoalEvent {
   player: string;
   minute: string;
