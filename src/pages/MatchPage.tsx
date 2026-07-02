@@ -40,7 +40,7 @@ const MatchPage = () => {
   const { data: publicSettings } = usePublicSiteSettings();
   const { data: servers, isLoading: serversLoading } = useStreamingServers(match?.id || '');
   // Warm up DNS/TLS for every server so switching is instant.
-  usePreconnectServers((servers || []).map((s) => s.url));
+  usePreconnectServers((servers || []).map((s) => s.server_url));
   const markNotWorking = useMarkServerNotWorking();
   const markWorking = useMarkServerWorking();
   
