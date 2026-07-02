@@ -1678,6 +1678,7 @@ export type Database = {
           is_working: boolean | null
           last_reported_at: string | null
           match_id: string
+          name_locked: boolean
           not_working_reports: number | null
           origin_value: string | null
           original_display_order: number | null
@@ -1705,6 +1706,7 @@ export type Database = {
           is_working?: boolean | null
           last_reported_at?: string | null
           match_id: string
+          name_locked?: boolean
           not_working_reports?: number | null
           origin_value?: string | null
           original_display_order?: number | null
@@ -1732,6 +1734,7 @@ export type Database = {
           is_working?: boolean | null
           last_reported_at?: string | null
           match_id?: string
+          name_locked?: boolean
           not_working_reports?: number | null
           origin_value?: string | null
           original_display_order?: number | null
