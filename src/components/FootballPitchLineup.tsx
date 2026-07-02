@@ -288,51 +288,74 @@ const buildRowsForFormation = (
   starters: Player[],
   formation: string | null,
 ): { rows: { player: Player; sideOrder: number }[][]; formation: string } => {
-  // Split GK from outfield
+  const rows: { player: Player; sideOrder: number }[][] = [];
+
+  // Parse ESPN formation sizes (outfield only, e.g. "4-3-3" → [4,3,3])
+  const sizes = formation
+    ? formation.split('-').map(n => parseInt(n, 10)).filter(n => n > 0)
+    : null;
+
+  // ─── Preferred path: trust ESPN's formation_place (1..11) ───
+  // Place 1 = GK, then defenders → midfielders → forwards in ESPN order.
+  const withPlace = starters.filter(p => p.formation_place != null);
+  const canUsePlace =
+    sizes !== null &&
+    withPlace.length === starters.length &&
+    starters.length === 1 + sizes.reduce((a, b) => a + b, 0);
+
+  if (canUsePlace && sizes) {
+    const ordered = [...starters].sort(
+      (a, b) => (a.formation_place ?? 999) - (b.formation_place ?? 999),
+    );
+    // GK
+    rows.push([{ player: ordered[0], sideOrder: 50 }]);
+    let cursor = 1;
+    for (const size of sizes) {
+      const slice = ordered.slice(cursor, cursor + size);
+      // Spread evenly left→right across the row
+      const rowItems = slice.map((player, i) => ({
+        player,
+        sideOrder: size === 1 ? 50 : 10 + (80 * i) / (size - 1),
+      }));
+      rows.push(rowItems);
+      cursor += size;
+    }
+    const outSizes = rows.slice(1).map(r => r.length);
+    return { rows, formation: outSizes.join('-') };
+  }
+
+  // ─── Fallback: parse position strings ───
   const gk: Player[] = [];
   const outfield: Player[] = [];
   for (const p of starters) {
     const { row } = parsePosition(p.player_role);
-    if (row === 0) gk.push(p); else outfield.push(p);
-  }
-  // If GK not detected but we have 11 starters, treat lowest-place as GK
-  if (gk.length === 0 && outfield.length === 11) {
-    const withPlace = outfield.filter(p => p.formation_place != null);
-    if (withPlace.length) {
-      withPlace.sort((a, b) => (a.formation_place ?? 999) - (b.formation_place ?? 999));
-      gk.push(withPlace[0]);
-      const idx = outfield.indexOf(withPlace[0]);
-      if (idx >= 0) outfield.splice(idx, 1);
-    }
+    if (row === 0) gk.push(p);
+    else outfield.push(p);
   }
 
-  // Sort outfield by (row asc = defence→attack, sideOrder asc = left→right)
   const sorted = outfield
     .map(p => ({ player: p, ...parsePosition(p.player_role) }))
     .sort((a, b) => a.row - b.row || a.sideOrder - b.sideOrder);
 
-  // Determine row sizes from formation string
-  let sizes: number[] | null = null;
-  if (formation) {
-    const parts = formation.split('-').map(n => parseInt(n, 10)).filter(n => n > 0);
-    if (parts.length >= 2 && parts.reduce((a, b) => a + b, 0) === sorted.length) sizes = parts;
-  }
-
-  const rows: { player: Player; sideOrder: number }[][] = [];
-  // GK row first (row 0)
   if (gk.length) rows.push(gk.map(p => ({ player: p, sideOrder: 50 })));
 
-  if (sizes) {
+  const useSizes =
+    sizes && sizes.reduce((a, b) => a + b, 0) === sorted.length ? sizes : null;
+
+  if (useSizes) {
     let cursor = 0;
-    for (const size of sizes) {
+    for (const size of useSizes) {
       const slice = sorted.slice(cursor, cursor + size);
-      // sort each row left→right
       slice.sort((a, b) => a.sideOrder - b.sideOrder);
-      rows.push(slice.map(({ player, sideOrder }) => ({ player, sideOrder })));
+      rows.push(
+        slice.map(({ player }, i) => ({
+          player,
+          sideOrder: size === 1 ? 50 : 10 + (80 * i) / (size - 1),
+        })),
+      );
       cursor += size;
     }
   } else {
-    // Fallback: keep parsePosition rows
     const grouped: Record<number, { player: Player; sideOrder: number }[]> = {};
     for (const item of sorted) {
       (grouped[item.row] ||= []).push({ player: item.player, sideOrder: item.sideOrder });
@@ -342,7 +365,6 @@ const buildRowsForFormation = (
     });
   }
 
-  // Final formation string (skip GK row for display)
   const outSizes = rows.slice(gk.length ? 1 : 0).map(r => r.length).filter(n => n > 0);
   return { rows, formation: outSizes.join('-') };
 };
