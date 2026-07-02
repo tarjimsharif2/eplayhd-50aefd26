@@ -1,0 +1,1 @@
+UPDATE public.bottom_nav_items SET url='/tournaments', updated_at=now() WHERE url='/?section=tournaments';
