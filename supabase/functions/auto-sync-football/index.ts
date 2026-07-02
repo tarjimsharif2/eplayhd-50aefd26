@@ -468,14 +468,16 @@ serve(async (req) => {
             if (existingTeamACount > 0) await supabase.from('match_playing_xi').delete().eq('match_id', dbMatch.id).eq('team_id', teamAId);
             for (let i = 0; i < lineupTeamA.length; i++) {
               const p = lineupTeamA[i];
-              lineupInserts.push({ match_id: dbMatch.id, team_id: teamAId, player_name: p.name, player_role: p.position || null, batting_order: i + 1, is_captain: p.isCaptain || false, is_vice_captain: false, is_bench: !!p.isSub, player_image: p.playerImage || null });
+              const jn = p.jerseyNumber != null ? parseInt(String(p.jerseyNumber), 10) : NaN;
+              lineupInserts.push({ match_id: dbMatch.id, team_id: teamAId, player_name: p.name, player_role: p.position || null, batting_order: Number.isFinite(jn) ? jn : (i + 1), jersey_number: Number.isFinite(jn) ? jn : null, formation: p.formation || null, formation_place: p.formationPlace || null, is_captain: p.isCaptain || false, is_vice_captain: false, is_bench: !!p.isSub, player_image: p.playerImage || null });
             }
           }
           if (needsTeamBSync && lineupTeamB) {
             if (existingTeamBCount > 0) await supabase.from('match_playing_xi').delete().eq('match_id', dbMatch.id).eq('team_id', teamBId);
             for (let i = 0; i < lineupTeamB.length; i++) {
               const p = lineupTeamB[i];
-              lineupInserts.push({ match_id: dbMatch.id, team_id: teamBId, player_name: p.name, player_role: p.position || null, batting_order: i + 1, is_captain: p.isCaptain || false, is_vice_captain: false, is_bench: !!p.isSub, player_image: p.playerImage || null });
+              const jn = p.jerseyNumber != null ? parseInt(String(p.jerseyNumber), 10) : NaN;
+              lineupInserts.push({ match_id: dbMatch.id, team_id: teamBId, player_name: p.name, player_role: p.position || null, batting_order: Number.isFinite(jn) ? jn : (i + 1), jersey_number: Number.isFinite(jn) ? jn : null, formation: p.formation || null, formation_place: p.formationPlace || null, is_captain: p.isCaptain || false, is_vice_captain: false, is_bench: !!p.isSub, player_image: p.playerImage || null });
             }
           }
           if (lineupInserts.length > 0) {
