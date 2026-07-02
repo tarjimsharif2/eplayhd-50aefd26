@@ -320,6 +320,8 @@ const Admin = () => {
     slider_duration_seconds: 6,
     // Video player countdown before iframe loads
     player_load_time_seconds: 0,
+    // Default iframe fallback when no server exists
+    default_iframe_url: '',
     // Homepage completed matches days
     homepage_completed_days: 2,
     // Homepage channels limit
