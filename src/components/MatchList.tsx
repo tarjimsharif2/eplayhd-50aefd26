@@ -498,7 +498,7 @@ const MatchList = () => {
           />
         </div>
 
-        {filteredMatches.length > 0 ? (
+        {filteredMatches.length > 0 || (events && events.length > 0) ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {(events ?? [])
               .filter((e) => {
