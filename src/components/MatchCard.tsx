@@ -11,6 +11,7 @@ import FootballTimer from "@/components/FootballTimer";
 
 import { useMatchToss } from "@/hooks/useMatchToss";
 import { formatOvers } from "@/lib/utils";
+import { optimizeImage } from "@/lib/imageUrl";
 
 interface MatchCardProps {
   match: Match;
