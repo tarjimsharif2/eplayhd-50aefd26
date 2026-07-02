@@ -2,6 +2,7 @@ import { useEffect, useRef, useMemo, useState } from 'react';
 import { usePublicSiteSettings } from '@/hooks/usePublicSiteSettings';
 import { trackAdImpression } from '@/hooks/useGoogleAnalytics';
 import { useAdClickProtectionContext } from '@/components/AdClickProtectionProvider';
+import { useCurrentUserPermissions } from '@/hooks/usePermissions';
 
 interface AdCodeSlot {
   id: string;
@@ -49,19 +50,20 @@ const MultiAdSlot = ({ position, className = '', fallbackPosition }: MultiAdSlot
   const containerRef = useRef<HTMLDivElement>(null);
   const hasExecuted = useRef(false);
   const hasTrackedImpression = useRef(false);
-  const [hasContent, setHasContent] = useState(false);
+  const [isEmpty, setIsEmpty] = useState(false);
   const { isBlocked, trackAdClick } = useAdClickProtectionContext();
+  const { isAdmin } = useCurrentUserPermissions();
 
   const adSlots = useMemo(() => {
-    if (!settings?.ads_enabled) return [];
+    if (!settings?.ads_enabled || isAdmin) return [];
     const multipleAdCodes = (settings as any).multiple_ad_codes as MultipleAdCodes | null;
     if (!multipleAdCodes) return [];
     const slots = multipleAdCodes[position] || [];
     return slots.filter((slot: AdCodeSlot) => slot.enabled && slot.code?.trim());
-  }, [settings, position]);
+  }, [settings, position, isAdmin]);
 
   const legacyAdCode = useMemo(() => {
-    if (!settings?.ads_enabled || adSlots.length > 0) return null;
+    if (!settings?.ads_enabled || adSlots.length > 0 || isAdmin) return null;
     if (!fallbackPosition) return null;
     const legacyCodeMap: Record<string, string | null | undefined> = {
       header: settings.header_ad_code,
@@ -71,7 +73,7 @@ const MultiAdSlot = ({ position, className = '', fallbackPosition }: MultiAdSlot
       popup: settings.popup_ad_code,
     };
     return legacyCodeMap[fallbackPosition] || null;
-  }, [settings, adSlots.length, fallbackPosition]);
+  }, [settings, adSlots.length, fallbackPosition, isAdmin]);
 
   useEffect(() => {
     if (!containerRef.current || hasExecuted.current || isBlocked) return;
@@ -138,7 +140,7 @@ const MultiAdSlot = ({ position, className = '', fallbackPosition }: MultiAdSlot
 
     return () => {
       hasExecuted.current = false;
-      setHasContent(false);
+      setIsEmpty(false);
       container.removeEventListener('click', handleClick);
     };
   }, [adSlots, legacyAdCode, position, isBlocked, trackAdClick]);
@@ -146,11 +148,31 @@ const MultiAdSlot = ({ position, className = '', fallbackPosition }: MultiAdSlot
   useEffect(() => {
     hasExecuted.current = false;
     hasTrackedImpression.current = false;
-    setHasContent(false);
+    setIsEmpty(false);
   }, [position]);
 
+  // Collapse if the ad slots don't render any visible content
+  useEffect(() => {
+    if ((adSlots.length === 0 && !legacyAdCode) || !containerRef.current) return;
+    const el = containerRef.current;
+    const check = () => {
+      const walk = (node: Element): boolean => {
+        for (const c of Array.from(node.children)) {
+          if (c.tagName === 'SCRIPT') continue;
+          const r = (c as HTMLElement).getBoundingClientRect();
+          if (r.height > 1 && r.width > 1) return true;
+          if (walk(c)) return true;
+        }
+        return false;
+      };
+      setIsEmpty(!walk(el));
+    };
+    const timers = [setTimeout(check, 800), setTimeout(check, 2500), setTimeout(check, 5000)];
+    return () => timers.forEach(clearTimeout);
+  }, [adSlots, legacyAdCode]);
+
   if (adSlots.length === 0 && !legacyAdCode) return null;
-  if (isBlocked) return null;
+  if (isBlocked || isAdmin) return null;
 
   return (
     <div 
@@ -159,7 +181,7 @@ const MultiAdSlot = ({ position, className = '', fallbackPosition }: MultiAdSlot
       style={{
         width: '100%',
         overflow: 'visible',
-        display: 'block',
+        display: isEmpty ? 'none' : 'block',
       }}
       data-ad-position={position}
     />
