@@ -350,8 +350,10 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
               style={(tournament as any).logo_background_color ? { backgroundColor: (tournament as any).logo_background_color } : undefined}
             >
               <img 
-                src={tournament.logo_url} 
+                src={optimizeImage(tournament.logo_url, { width: 80, quality: 75 })}
                 alt={tournament.name}
+                loading="lazy"
+                decoding="async"
                 className="w-full h-full object-contain"
               />
             </div>
@@ -474,7 +476,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                           style={teamA.logo_background_color ? { backgroundColor: teamA.logo_background_color } : undefined}
                         >
                           {teamA.logo_url ? (
-                            <img src={teamA.logo_url} alt={teamA.name} className="w-full h-full object-contain" />
+                            <img src={optimizeImage(teamA.logo_url, { width: 120, quality: 75 })} alt={teamA.name} loading="lazy" decoding="async" className="w-full h-full object-contain" />
                           ) : (
                             <span className="font-display text-base text-primary">{getInitials(teamA.name)}</span>
                           )}
@@ -529,7 +531,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                           style={teamB.logo_background_color ? { backgroundColor: teamB.logo_background_color } : undefined}
                         >
                           {teamB.logo_url ? (
-                            <img src={teamB.logo_url} alt={teamB.name} className="w-full h-full object-contain" />
+                            <img src={optimizeImage(teamB.logo_url, { width: 120, quality: 75 })} alt={teamB.name} loading="lazy" decoding="async" className="w-full h-full object-contain" />
                           ) : (
                             <span className="font-display text-base text-primary">{getInitials(teamB.name)}</span>
                           )}
@@ -594,7 +596,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                     style={teamA.logo_background_color ? { backgroundColor: teamA.logo_background_color } : undefined}
                   >
                     {teamA.logo_url ? (
-                      <img src={teamA.logo_url} alt={teamA.name} className="w-full h-full object-contain" />
+                      <img src={optimizeImage(teamA.logo_url, { width: 120, quality: 75 })} alt={teamA.name} loading="lazy" decoding="async" className="w-full h-full object-contain" />
                     ) : (
                       <span className="font-display text-lg text-primary">{getInitials(teamA.name)}</span>
                     )}
@@ -642,7 +644,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                     style={teamB.logo_background_color ? { backgroundColor: teamB.logo_background_color } : undefined}
                   >
                     {teamB.logo_url ? (
-                      <img src={teamB.logo_url} alt={teamB.name} className="w-full h-full object-contain" />
+                      <img src={optimizeImage(teamB.logo_url, { width: 120, quality: 75 })} alt={teamB.name} loading="lazy" decoding="async" className="w-full h-full object-contain" />
                     ) : (
                       <span className="font-display text-lg text-primary">{getInitials(teamB.name)}</span>
                     )}
