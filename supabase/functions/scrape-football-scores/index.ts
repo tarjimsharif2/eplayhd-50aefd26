@@ -6,6 +6,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Global per-invocation deadline to stay under edge-runtime 150s idle timeout.
+// Hard deadline stops all remote work; soft deadline skips optional enrichment.
+let requestDeadline = 0;
+let softDeadline = 0;
+const isPastDeadline = () => requestDeadline > 0 && Date.now() >= requestDeadline;
+const isPastSoftDeadline = () => softDeadline > 0 && Date.now() >= softDeadline;
+
 interface GoalEvent {
   player: string;
   minute: string;
@@ -184,6 +191,10 @@ async function enrichLineupWithTheSportsDB(
   homeLineup: PlayerInfo[], awayLineup: PlayerInfo[],
   homeTeamName: string, awayTeamName: string
 ): Promise<void> {
+  if (isPastSoftDeadline()) {
+    console.log('[TheSportsDB] Skipping enrichment — past soft deadline');
+    return;
+  }
   const homeMissing = homeLineup.some(p => !p.playerImage);
   const awayMissing = awayLineup.some(p => !p.playerImage);
   
@@ -1053,6 +1064,11 @@ async function fetchESPNScores(league: string = 'epl', includeDetails: boolean =
       // Fetch detailed lineup, subs & goals if requested
       // Also fetch round info from summary API if not found from scoreboard
       if (includeDetails) {
+        if (isPastDeadline()) {
+          console.log(`[Deadline] Skipping match details for remaining events in ${leagueCode}`);
+          matches.push(matchObj);
+          continue;
+        }
         const matchDetails = await fetchMatchDetails(event.id, leagueCode);
         if (matchDetails) {
           // Update round from summary API if we didn't find it in scoreboard
@@ -1126,6 +1142,10 @@ async function fetchAllLeagues(includeDetails: boolean = false): Promise<Footbal
   // Fetch in batches of 10 to avoid overwhelming the API
   const batchSize = 10;
   for (let i = 0; i < leagueCodes.length; i += batchSize) {
+    if (isPastDeadline()) {
+      console.log(`[Deadline] Stopping league batches at ${i}/${leagueCodes.length}`);
+      break;
+    }
     const batch = leagueCodes.slice(i, i + batchSize);
     const promises = batch.map(leagueCode => fetchESPNScores(leagueCode, includeDetails));
     const results = await Promise.all(promises);
@@ -1275,6 +1295,11 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Set per-invocation deadlines well under the 150s edge-runtime timeout.
+  const startedAt = Date.now();
+  requestDeadline = startedAt + 120_000; // hard: 120s
+  softDeadline    = startedAt + 90_000;  // soft: 90s (skip optional enrichment)
 
   try {
     const body = await req.json();
