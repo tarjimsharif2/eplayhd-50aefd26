@@ -4716,6 +4716,18 @@ const Admin = () => {
                           <p className="text-xs text-muted-foreground">Auto-slide interval for banner carousel (2-30 seconds)</p>
                         </div>
                         <div className="space-y-2">
+                          <Label>Player Load Time (seconds)</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={30}
+                            placeholder="0"
+                            value={(siteSettingsForm as any).player_load_time_seconds ?? 0}
+                            onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, player_load_time_seconds: Math.max(0, parseInt(e.target.value) || 0) } as any)}
+                          />
+                          <p className="text-xs text-muted-foreground">Countdown shown before the video iframe loads (0 = instant, like Dooplay)</p>
+                        </div>
+                        <div className="space-y-2">
                           <Label>Completed Matches Display (days)</Label>
                           <Input 
                             type="number"
