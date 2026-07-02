@@ -645,78 +645,71 @@ const MatchPage = () => {
               transition={{ delay: 0.2 }}
               className="mt-6"
             >
-              <Card className="overflow-hidden border-border/50 bg-card/80 backdrop-blur">
-                <CardContent className="p-6">
-                  {/* Tournament & Sport Info */}
-                  <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-                    <div className="flex items-center gap-3">
-                      {tournament?.logo_url && (
-                        <div
-                          className={`w-10 h-10 rounded-xl p-1 border flex items-center justify-center flex-shrink-0 ${
-                            (tournament as any)?.logo_background_color
-                              ? 'border-border/30'
-                              : 'bg-background/60 border-border/30'
-                          }`}
-                          style={(tournament as any)?.logo_background_color ? { backgroundColor: (tournament as any).logo_background_color } : undefined}
-                        >
-                          <img src={tournament.logo_url} alt={tournament.name} className="w-full h-full object-contain" />
-                        </div>
-                      )}
-                      <div>
-                        <h2 className="font-display text-lg text-gradient">{tournament?.name || 'Match'}</h2>
-                        <p className="text-sm text-muted-foreground">{sport?.name} • {tournament?.season}</p>
-                      </div>
-                    </div>
-                    <Badge variant={getStatusVariant(match.status)} className="text-sm px-4 py-1.5">
-                      {match.status === 'live' && <span className="w-2 h-2 bg-current rounded-full mr-2 animate-pulse" />}
+              <Card className="relative overflow-hidden rounded-3xl border-white/10 bg-gradient-to-b from-white/[0.08] to-transparent backdrop-blur-xl shadow-2xl">
+                <CardContent className="p-6 relative">
+                  <div className="absolute top-5 right-5 z-10">
+                    <Badge variant={getStatusVariant(match.status)} className="rounded-full text-[10px] font-black uppercase tracking-widest px-3 py-1 shadow-lg">
+                      {match.status === 'live' && <span className="w-1.5 h-1.5 bg-current rounded-full mr-1.5 animate-pulse" />}
                       {getStatusText(match.status)}
                     </Badge>
                   </div>
-
-                  {/* Teams Section */}
-                  <div className="flex items-center justify-between gap-4 py-6">
-                    <div className="flex-1 flex flex-col items-center text-center gap-3">
-                      <div 
-                        className={`w-20 h-20 md:w-24 md:h-24 rounded-2xl flex items-center justify-center p-2 ${
-                          teamA?.logo_background_color 
-                            ? 'border border-border/30' 
-                            : 'bg-gradient-to-br from-primary/15 to-transparent border border-primary/20'
+                  <div className="mb-8 flex items-center gap-3">
+                    {tournament?.logo_url && (
+                      <div
+                        className={`w-9 h-9 rounded-lg p-1 border border-white/10 flex items-center justify-center flex-shrink-0 ${
+                          (tournament as any)?.logo_background_color ? '' : 'bg-white/5'
                         }`}
-                        style={teamA?.logo_background_color ? { backgroundColor: teamA.logo_background_color } : undefined}
+                        style={(tournament as any)?.logo_background_color ? { backgroundColor: (tournament as any).logo_background_color } : undefined}
                       >
-                        {teamA?.logo_url ? (
-                          <img src={teamA.logo_url} alt={teamA.name} className="w-14 h-14 md:w-16 md:h-16 object-contain" />
-                        ) : (
-                          <span className="font-display text-2xl text-primary">{teamA?.short_name}</span>
-                        )}
+                        <img src={tournament.logo_url} alt={tournament.name} className="w-full h-full object-contain" />
                       </div>
-                      <h1 className="font-semibold text-lg md:text-xl break-words text-center">{teamA?.name}</h1>
-                      {displayScoreA && <span className="text-2xl font-bold text-primary">{displayScoreA}</span>}
+                    )}
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-black uppercase tracking-[0.25em] text-primary truncate">{tournament?.name || 'Match'}</div>
+                      <p className="text-xs text-muted-foreground/70 font-medium tracking-wide truncate">{sport?.name}{tournament?.season ? ` • ${tournament.season}` : ''}</p>
                     </div>
-
-                    <div className="flex flex-col items-center gap-2 px-4">
-                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center border border-primary/30">
-                        <span className="font-display text-lg text-foreground/80">VS</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 py-2">
+                    <div className="flex-1 flex flex-col items-center text-center gap-3 min-w-0">
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-primary/25 blur-2xl rounded-full" />
+                        <div
+                          className={`relative w-20 h-20 md:w-24 md:h-24 rounded-2xl flex items-center justify-center p-2 border border-white/10 ${
+                            teamA?.logo_background_color ? '' : 'bg-white/5 backdrop-blur-sm'
+                          }`}
+                          style={teamA?.logo_background_color ? { backgroundColor: teamA.logo_background_color } : undefined}
+                        >
+                          {teamA?.logo_url ? (
+                            <img src={teamA.logo_url} alt={teamA.name} className="w-14 h-14 md:w-16 md:h-16 object-contain" />
+                          ) : (
+                            <span className="font-display text-2xl text-primary">{teamA?.short_name}</span>
+                          )}
+                        </div>
                       </div>
+                      <h1 className="text-sm md:text-base font-bold tracking-tight uppercase break-words text-center leading-tight">{teamA?.name}</h1>
+                      {displayScoreA && <span className="text-2xl font-black text-primary">{displayScoreA}</span>}
                     </div>
-
-                    <div className="flex-1 flex flex-col items-center text-center gap-3">
-                      <div 
-                        className={`w-20 h-20 md:w-24 md:h-24 rounded-2xl flex items-center justify-center p-2 ${
-                          teamB?.logo_background_color 
-                            ? 'border border-border/30' 
-                            : 'bg-gradient-to-br from-primary/15 to-transparent border border-primary/20'
-                        }`}
-                        style={teamB?.logo_background_color ? { backgroundColor: teamB.logo_background_color } : undefined}
-                      >
-                        {teamB?.logo_url ? (
-                          <img src={teamB.logo_url} alt={teamB.name} className="w-14 h-14 md:w-16 md:h-16 object-contain" />
-                        ) : (
-                          <span className="font-display text-2xl text-primary">{teamB?.short_name}</span>
-                        )}
+                    <div className="flex flex-col items-center justify-center px-2 shrink-0">
+                      <span className="font-display italic text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-b from-foreground/80 to-foreground/20">vs</span>
+                    </div>
+                    <div className="flex-1 flex flex-col items-center text-center gap-3 min-w-0">
+                      <div className="relative">
+                        <div className="absolute inset-0 bg-pink-500/25 blur-2xl rounded-full" />
+                        <div
+                          className={`relative w-20 h-20 md:w-24 md:h-24 rounded-2xl flex items-center justify-center p-2 border border-white/10 ${
+                            teamB?.logo_background_color ? '' : 'bg-white/5 backdrop-blur-sm'
+                          }`}
+                          style={teamB?.logo_background_color ? { backgroundColor: teamB.logo_background_color } : undefined}
+                        >
+                          {teamB?.logo_url ? (
+                            <img src={teamB.logo_url} alt={teamB.name} className="w-14 h-14 md:w-16 md:h-16 object-contain" />
+                          ) : (
+                            <span className="font-display text-2xl text-primary">{teamB?.short_name}</span>
+                          )}
+                        </div>
                       </div>
-                      <h1 className="font-semibold text-lg md:text-xl break-words text-center">{teamB?.name}</h1>
-                      {displayScoreB && <span className="text-2xl font-bold text-primary">{displayScoreB}</span>}
+                      <h1 className="text-sm md:text-base font-bold tracking-tight uppercase break-words text-center leading-tight">{teamB?.name}</h1>
+                      {displayScoreB && <span className="text-2xl font-black text-primary">{displayScoreB}</span>}
                     </div>
                   </div>
 
