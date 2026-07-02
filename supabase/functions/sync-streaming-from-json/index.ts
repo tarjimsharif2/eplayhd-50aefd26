@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
     const matchIds = matches.map((m: any) => m.id);
     const { data: existingAuto } = await supabase
       .from("streaming_servers")
-      .select("id, match_id, auto_source_id, server_url, server_name, display_order")
+      .select("id, match_id, auto_source_id, server_url, server_name, display_order, name_locked")
       .in("match_id", matchIds)
       .not("auto_source_id", "is", null);
 
@@ -201,17 +201,16 @@ Deno.serve(async (req) => {
           const existing = existingMap.get(dedupKey);
 
           if (existing) {
-            if (existing.server_url !== playerUrl || existing.server_name !== serverName) {
-              await supabase.from("streaming_servers").update({
+            const finalName = existing.name_locked ? existing.server_name : serverName;
+            if (existing.server_url !== playerUrl || existing.server_name !== finalName || (existing.display_order || 0) !== orderPos) {
+              const upd: Record<string, unknown> = {
                 server_url: playerUrl,
-                server_name: serverName,
                 is_working: true,
                 display_order: orderPos,
-              }).eq("id", existing.id);
-              totalUpdated++;
-            } else if ((existing.display_order || 0) !== orderPos) {
+              };
+              if (!existing.name_locked) upd.server_name = serverName;
               await supabase.from("streaming_servers").update({
-                display_order: orderPos,
+                ...upd,
               }).eq("id", existing.id);
               totalUpdated++;
             } else {

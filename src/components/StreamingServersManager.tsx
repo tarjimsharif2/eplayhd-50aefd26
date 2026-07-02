@@ -179,6 +179,14 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       original_display_order: null,
     };
 
+    // If editing an auto-synced server and the name has been changed by the user,
+    // lock the name so future JSON syncs don't overwrite it.
+    if (editingServer && (editingServer as any).auto_source_id) {
+      if (serverForm.server_name !== editingServer.server_name) {
+        (serverData as any).name_locked = true;
+      }
+    }
+
     try {
       if (editingServer) {
         await updateServer.mutateAsync({ id: editingServer.id, ...serverData });
