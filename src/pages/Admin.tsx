@@ -1787,12 +1787,14 @@ const Admin = () => {
                   </TabsTrigger>
                 )}
                 {canManagePages && (
-                  <TabsTrigger value="menus" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
-                    Menus
-                  </TabsTrigger>
-                  <TabsTrigger value="bottom-nav" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
-                    Bottom Nav
-                  </TabsTrigger>
+                  <>
+                    <TabsTrigger value="menus" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                      Menus
+                    </TabsTrigger>
+                    <TabsTrigger value="bottom-nav" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                      Bottom Nav
+                    </TabsTrigger>
+                  </>
                 )}
                 {canManageAds && (
                   <TabsTrigger value="ads" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
