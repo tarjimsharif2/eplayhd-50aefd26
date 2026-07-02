@@ -428,15 +428,21 @@ interface PlayerChipProps {
 const PlayerChip = ({ player, goals, subs, primaryColor, secondaryColor }: PlayerChipProps) => {
   const scored = goals.filter(g => nameMatch(g.player, player.player_name));
   const subOut = subs.find(s => nameMatch(s.player_out, player.player_name));
-  const lastName = player.player_name.split(' ').pop() ?? player.player_name;
+  const jerseyNum = player.jersey_number ?? player.batting_order ?? null;
+  // Display: full name if short, otherwise "F. LastName"
+  const parts = player.player_name.trim().split(/\s+/);
+  const displayName =
+    player.player_name.length <= 14 || parts.length === 1
+      ? player.player_name
+      : `${parts[0][0]}. ${parts.slice(1).join(' ')}`;
 
   return (
-    <div className="flex flex-col items-center gap-0.5" style={{ minWidth: 48, maxWidth: 62 }}>
+    <div className="flex flex-col items-center gap-0.5" style={{ minWidth: 52, maxWidth: 74 }}>
       <div className="relative">
         <JerseySVG
           primaryColor={primaryColor}
           secondaryColor={secondaryColor}
-          number={player.batting_order}
+          number={jerseyNum}
         />
 
         {/* Goal badge */}
@@ -475,17 +481,17 @@ const PlayerChip = ({ player, goals, subs, primaryColor, secondaryColor }: Playe
         )}
       </div>
 
-      {/* Player last name */}
+      {/* Player name (full when it fits) */}
       <span
-        className="text-[9px] font-bold text-center leading-tight drop-shadow truncate"
-        style={{ maxWidth: 58, color: 'white' }}
+        className="text-[9px] font-bold text-center leading-tight drop-shadow"
+        style={{ maxWidth: 72, color: 'white', wordBreak: 'break-word' }}
       >
-        {lastName}
+        {displayName}
       </span>
 
       {/* Position label */}
       {player.player_role && (
-        <span className="text-[7px] text-white/50 text-center leading-none truncate" style={{ maxWidth: 58 }}>
+        <span className="text-[7px] text-white/50 text-center leading-none truncate" style={{ maxWidth: 72 }}>
           {player.player_role}
         </span>
       )}
