@@ -1296,6 +1296,11 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Set per-invocation deadlines well under the 150s edge-runtime timeout.
+  const startedAt = Date.now();
+  requestDeadline = startedAt + 120_000; // hard: 120s
+  softDeadline    = startedAt + 90_000;  // soft: 90s (skip optional enrichment)
+
   try {
     const body = await req.json();
     const { url, league, allLeagues, matchId, includeDetails } = body;
