@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
     const matchIds = matches.map((m: any) => m.id);
     const { data: existingAuto } = await supabase
       .from("streaming_servers")
-      .select("id, match_id, auto_source_id, server_url, server_name")
+      .select("id, match_id, auto_source_id, server_url, server_name, display_order")
       .in("match_id", matchIds)
       .not("auto_source_id", "is", null);
 
