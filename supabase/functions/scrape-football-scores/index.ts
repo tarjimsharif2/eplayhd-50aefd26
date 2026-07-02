@@ -191,6 +191,10 @@ async function enrichLineupWithTheSportsDB(
   homeLineup: PlayerInfo[], awayLineup: PlayerInfo[],
   homeTeamName: string, awayTeamName: string
 ): Promise<void> {
+  if (isPastSoftDeadline()) {
+    console.log('[TheSportsDB] Skipping enrichment — past soft deadline');
+    return;
+  }
   const homeMissing = homeLineup.some(p => !p.playerImage);
   const awayMissing = awayLineup.some(p => !p.playerImage);
   
@@ -1060,6 +1064,11 @@ async function fetchESPNScores(league: string = 'epl', includeDetails: boolean =
       // Fetch detailed lineup, subs & goals if requested
       // Also fetch round info from summary API if not found from scoreboard
       if (includeDetails) {
+        if (isPastDeadline()) {
+          console.log(`[Deadline] Skipping match details for remaining events in ${leagueCode}`);
+          matches.push(matchObj);
+          continue;
+        }
         const matchDetails = await fetchMatchDetails(event.id, leagueCode);
         if (matchDetails) {
           // Update round from summary API if we didn't find it in scoreboard
@@ -1133,6 +1142,10 @@ async function fetchAllLeagues(includeDetails: boolean = false): Promise<Footbal
   // Fetch in batches of 10 to avoid overwhelming the API
   const batchSize = 10;
   for (let i = 0; i < leagueCodes.length; i += batchSize) {
+    if (isPastDeadline()) {
+      console.log(`[Deadline] Stopping league batches at ${i}/${leagueCodes.length}`);
+      break;
+    }
     const batch = leagueCodes.slice(i, i + batchSize);
     const promises = batch.map(leagueCode => fetchESPNScores(leagueCode, includeDetails));
     const results = await Promise.all(promises);
