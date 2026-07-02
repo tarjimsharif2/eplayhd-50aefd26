@@ -432,16 +432,8 @@ const MatchList = () => {
     return statusMap;
   }, [matches]);
 
-  if (isLoading) {
-    return (
-      <section className="py-12 md:py-20">
-        <div className="container mx-auto px-4 text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
-          <p className="text-muted-foreground mt-4">Loading matches...</p>
-        </div>
-      </section>
-    );
-  }
+  // Skip the fullscreen loader; render the layout (BannerSlider + filters +
+  // skeleton grid) immediately to prevent large layout shifts once data lands.
 
   if (error) {
     return (
