@@ -43,6 +43,8 @@ export interface PublicSiteSettings {
   custom_footer_code: string | null;
   // Banner slider settings
   slider_duration_seconds: number | null;
+  // Video player load countdown (seconds)
+  player_load_time_seconds: number | null;
   // Admin slug
   admin_slug: string | null;
   // Maintenance mode settings

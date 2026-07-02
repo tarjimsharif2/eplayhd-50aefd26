@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { usePublicSiteSettings } from '@/hooks/usePublicSiteSettings';
 
 interface StreamHeaders {
   referer?: string | null;
@@ -465,6 +466,27 @@ const VideoPlayer = ({ url, type, headers, onStreamError, onStreamSuccess }: Vid
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const successNotifiedRef = useRef(false);
 
+  // Admin-configurable countdown before the iframe actually mounts (Dooplay-style).
+  const { data: publicSettings } = usePublicSiteSettings();
+  const configuredDelay = Math.max(0, (publicSettings as any)?.player_load_time_seconds ?? 0);
+  const [countdown, setCountdown] = useState<number>(configuredDelay);
+
+  useEffect(() => {
+    if (type !== 'iframe' && type !== 'embed') return;
+    setCountdown(configuredDelay);
+    if (configuredDelay <= 0) return;
+    const interval = setInterval(() => {
+      setCountdown((s) => {
+        if (s <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [url, type, configuredDelay]);
+
   // Handle iframe timeout detection
   useEffect(() => {
     if (type === 'iframe' || type === 'embed') {
@@ -590,6 +612,13 @@ const VideoPlayer = ({ url, type, headers, onStreamError, onStreamSuccess }: Vid
 
   return (
     <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden group">
+      {countdown > 0 && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black">
+          <div className="text-5xl font-bold text-primary tabular-nums">{countdown}</div>
+          <p className="text-white/70 text-sm">Player loading in {countdown}s…</p>
+        </div>
+      )}
+      {countdown === 0 && (
       <iframe
         ref={iframeRef}
         src={iframeSrc}
@@ -617,6 +646,7 @@ const VideoPlayer = ({ url, type, headers, onStreamError, onStreamSuccess }: Vid
         referrerPolicy="unsafe-url"
         loading="eager"
       />
+      )}
       
       {/* Direct embed toggle for iframe streams with headers */}
       {hasCustomHeaders(headers) && (type === 'iframe' || type === 'embed') && (
