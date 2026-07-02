@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Trophy, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Tournament } from '@/hooks/useSportsData';
 
 export const useActiveTournaments = () => {
@@ -68,19 +68,34 @@ const LiveTournaments = () => {
     return null;
   }
 
+  const HOMEPAGE_LIMIT = 8;
+  const displayed = tournaments.slice(0, HOMEPAGE_LIMIT);
+  const hasMore = tournaments.length > HOMEPAGE_LIMIT;
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="container mx-auto px-4 py-8"
     >
-      <div className="flex items-center gap-3 mb-6">
-        <Trophy className="w-6 h-6 text-primary" />
-        <h2 className="font-display text-2xl text-gradient">Live Tournaments</h2>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Trophy className="w-6 h-6 text-primary" />
+          <h2 className="font-display text-2xl text-gradient">Live Tournaments</h2>
+        </div>
+        {hasMore && (
+          <Link
+            to="/tournaments"
+            className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+          >
+            View All
+            <ChevronRight className="w-4 h-4" />
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {tournaments.map((tournament, index) => (
+        {displayed.map((tournament, index) => (
           <motion.div
             key={tournament.id}
             initial={{ opacity: 0, y: 20 }}
