@@ -25,6 +25,9 @@ interface PlayerInfo {
   jerseyNumber?: string;
   isCaptain?: boolean;
   playerImage?: string;
+  isSub?: boolean;
+  formation?: string;
+  formationPlace?: number;
 }
 
 interface FootballMatch {
@@ -296,17 +299,22 @@ async function fetchMatchDetails(eventId: string, leagueCode: string): Promise<{
     for (const roster of rosters) {
       const isHome = roster.homeAway === 'home';
       const lineup = isHome ? homeLineup : awayLineup;
+      const formationName = roster?.formation?.name || roster?.formation || undefined;
       
       for (const entry of roster.roster || []) {
         const player = entry.athlete;
         if (player && entry.starter) {
           const headshotUrl = getPlayerHeadshot(player as Record<string, unknown>);
+          const fpRaw = entry.formationPlace;
+          const formationPlace = fpRaw != null && fpRaw !== '' ? parseInt(String(fpRaw), 10) : NaN;
           lineup.push({
             name: player.displayName || player.fullName || 'Unknown',
             position: entry.position?.abbreviation || player.position?.abbreviation || '',
             jerseyNumber: player.jersey || entry.jersey,
             isCaptain: entry.captain || false,
             playerImage: headshotUrl,
+            formation: formationName,
+            formationPlace: Number.isFinite(formationPlace) && formationPlace > 0 ? formationPlace : undefined,
           });
         }
       }
