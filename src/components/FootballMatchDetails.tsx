@@ -187,11 +187,9 @@ const FootballMatchDetails = ({ matchId, teamA, teamB, goalsTeamA, goalsTeamB, s
         <span className="text-sm font-medium">{teamName}</span>
         <Badge variant="secondary" className="text-[10px]">{goals.length}</Badge>
       </div>
-      {goals.length === 0 ? (
-        <p className="text-xs text-muted-foreground py-2">No goals</p>
-      ) : (
+      {goals.length === 0 ? null : (
         <div className="space-y-1.5">
-          {goals.map((goal, index) => (
+          {goals.filter(g => g && g.player).map((goal, index) => (
             <motion.div 
               key={index}
               initial={{ opacity: 0, x: -10 }}
@@ -201,7 +199,11 @@ const FootballMatchDetails = ({ matchId, teamA, teamB, goalsTeamA, goalsTeamB, s
             >
               <Goal className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
               <span className="text-sm font-medium">{goal.player}</span>
-              <span className="text-sm text-primary font-medium">{goal.minute}</span>
+              {goal.minute && (
+                <span className="text-sm text-primary font-medium">
+                  {goal.minute}{String(goal.minute).endsWith("'") ? '' : "'"}
+                </span>
+              )}
               {renderGoalBadge(goal)}
               {goal.assist && (
                 <span className="text-xs text-muted-foreground ml-1">(Assist: {goal.assist})</span>
@@ -373,8 +375,8 @@ const FootballMatchDetails = ({ matchId, teamA, teamB, goalsTeamA, goalsTeamB, s
             {/* Goals Tab */}
             <TabsContent value="goals">
               <div className="grid md:grid-cols-2 gap-4">
-                {renderGoalsList(goalsTeamA, teamA.name, teamA.logo_url)}
-                {renderGoalsList(goalsTeamB, teamB.name, teamB.logo_url)}
+                {goalsTeamA.length > 0 && renderGoalsList(goalsTeamA, teamA.name, teamA.logo_url)}
+                {goalsTeamB.length > 0 && renderGoalsList(goalsTeamB, teamB.name, teamB.logo_url)}
               </div>
             </TabsContent>
 
