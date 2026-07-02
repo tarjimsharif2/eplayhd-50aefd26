@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import SEOHead from '@/components/SEOHead';
+import { optimizeImage } from '@/lib/imageUrl';
 
 const TournamentsPage = () => {
   const navigate = useNavigate();
@@ -110,8 +111,10 @@ const TournamentsPage = () => {
                             style={tournament.logo_background_color ? { backgroundColor: tournament.logo_background_color } : undefined}
                           >
                             <img
-                              src={tournament.logo_url}
+                              src={optimizeImage(tournament.logo_url, { width: 96, quality: 75 })}
                               alt={tournament.name}
+                              loading="lazy"
+                              decoding="async"
                               className="w-full h-full object-contain"
                             />
                           </div>

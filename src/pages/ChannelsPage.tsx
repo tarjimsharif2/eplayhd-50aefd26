@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import SEOHead from '@/components/SEOHead';
+import { optimizeImage } from '@/lib/imageUrl';
 
 const ChannelsPage = () => {
   const { data: channels, isLoading } = useChannels();
@@ -100,8 +101,10 @@ const ChannelsPage = () => {
                       >
                         {channel.logo_url ? (
                           <img 
-                            src={channel.logo_url} 
+                            src={optimizeImage(channel.logo_url, { width: 80, quality: 75 })}
                             alt={channel.name} 
+                            loading="lazy"
+                            decoding="async"
                             className="w-8 h-8 object-contain"
                           />
                         ) : (

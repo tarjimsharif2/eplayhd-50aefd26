@@ -6,6 +6,7 @@ import { Trophy, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { Tournament } from '@/hooks/useSportsData';
+import { optimizeImage } from '@/lib/imageUrl';
 
 export const useActiveTournaments = () => {
   return useQuery({
@@ -120,8 +121,10 @@ const LiveTournaments = () => {
                       style={(tournament as any).logo_background_color ? { backgroundColor: (tournament as any).logo_background_color } : undefined}
                     >
                       <img 
-                        src={tournament.logo_url} 
+                        src={optimizeImage(tournament.logo_url, { width: 96, quality: 75 })}
                         alt={tournament.name}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-full object-contain"
                       />
                     </div>
