@@ -458,8 +458,8 @@ serve(async (req) => {
 
       // Lineup sync (same logic as before)
       if (lineupTeamA?.length || lineupTeamB?.length) {
-        const { data: existingTeamAPlayers } = await supabase.from('match_playing_xi').select('id, player_image').eq('match_id', dbMatch.id).eq('team_id', teamAId);
-        const { data: existingTeamBPlayers } = await supabase.from('match_playing_xi').select('id, player_image').eq('match_id', dbMatch.id).eq('team_id', teamBId);
+        const { data: existingTeamAPlayers } = await supabase.from('match_playing_xi').select('id, player_image, formation_place').eq('match_id', dbMatch.id).eq('team_id', teamAId);
+        const { data: existingTeamBPlayers } = await supabase.from('match_playing_xi').select('id, player_image, formation_place').eq('match_id', dbMatch.id).eq('team_id', teamBId);
         const existingTeamACount = existingTeamAPlayers?.length || 0;
         const existingTeamBCount = existingTeamBPlayers?.length || 0;
         const newTeamACount = lineupTeamA?.length || 0;
@@ -468,9 +468,14 @@ serve(async (req) => {
         const teamBMissingImages = existingTeamBCount > 0 && (existingTeamBPlayers || []).filter(p => !p.player_image).length > existingTeamBCount / 2;
         const newTeamAHasImages = (lineupTeamA || []).some(p => !!p.playerImage);
         const newTeamBHasImages = (lineupTeamB || []).some(p => !!p.playerImage);
-        // Resync when we have NEW info: more players (incl. subs), or filling missing images
-        const needsTeamASync = newTeamACount > 0 && (existingTeamACount === 0 || newTeamACount > existingTeamACount || (teamAMissingImages && newTeamAHasImages));
-        const needsTeamBSync = newTeamBCount > 0 && (existingTeamBCount === 0 || newTeamBCount > existingTeamBCount || (teamBMissingImages && newTeamBHasImages));
+        // Backfill trigger: existing rows lack formation_place but new data has it
+        const teamAMissingFormation = existingTeamACount > 0 && (existingTeamAPlayers || []).every(p => p.formation_place == null);
+        const teamBMissingFormation = existingTeamBCount > 0 && (existingTeamBPlayers || []).every(p => p.formation_place == null);
+        const newTeamAHasFormation = (lineupTeamA || []).some(p => p.formationPlace != null);
+        const newTeamBHasFormation = (lineupTeamB || []).some(p => p.formationPlace != null);
+        // Resync when we have NEW info: more players, missing images, or missing formation data
+        const needsTeamASync = newTeamACount > 0 && (existingTeamACount === 0 || newTeamACount > existingTeamACount || (teamAMissingImages && newTeamAHasImages) || (teamAMissingFormation && newTeamAHasFormation));
+        const needsTeamBSync = newTeamBCount > 0 && (existingTeamBCount === 0 || newTeamBCount > existingTeamBCount || (teamBMissingImages && newTeamBHasImages) || (teamBMissingFormation && newTeamBHasFormation));
         if (needsTeamASync || needsTeamBSync) {
           const lineupInserts: any[] = [];
           if (needsTeamASync && lineupTeamA) {
