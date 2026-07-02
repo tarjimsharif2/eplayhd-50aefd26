@@ -137,6 +137,39 @@ export type Database = {
           },
         ]
       }
+      bottom_nav_items: {
+        Row: {
+          created_at: string
+          display_order: number
+          icon_name: string
+          id: string
+          is_active: boolean
+          label: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          icon_name?: string
+          id?: string
+          is_active?: boolean
+          label: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          icon_name?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       channel_streaming_servers: {
         Row: {
           ad_block_enabled: boolean | null
@@ -2144,6 +2177,7 @@ export type Database = {
       }
     }
     Functions: {
+      auto_complete_expired_tournaments: { Args: never; Returns: undefined }
       call_sync_api_scores: { Args: never; Returns: undefined }
       call_sync_streaming_from_json: { Args: never; Returns: undefined }
       call_update_match_status: { Args: never; Returns: undefined }

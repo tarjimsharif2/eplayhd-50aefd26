@@ -34,8 +34,16 @@ export const useActiveTournaments = () => {
       
       if (error) throw error;
 
+      // Client-side safety net: hide tournaments whose end_date is in the past
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const notExpired = (data as Tournament[]).filter((t: any) => {
+        if (!t.end_date) return true;
+        return new Date(t.end_date) >= today;
+      });
+
       // Combine with live match tournaments and mark which have live matches
-      const allActiveTournaments = (data as Tournament[]).map(t => ({
+      const allActiveTournaments = notExpired.map(t => ({
         ...t,
         hasLiveMatches: liveIds.includes(t.id)
       }));

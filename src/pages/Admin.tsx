@@ -61,6 +61,7 @@ import RapidApiEndpointsManager from "@/components/RapidApiEndpointsManager";
 import MaintenanceModeManager from "@/components/MaintenanceModeManager";
 import ChannelsManager from "@/components/ChannelsManager";
 import MenuManager from "@/components/MenuManager";
+import BottomNavManager from "@/components/BottomNavManager";
 import TournamentVenueManager from "@/components/TournamentVenueManager";
 import { useTournamentVenues } from "@/hooks/useTournamentVenues";
 import VenueComboInput from "@/components/VenueComboInput";
@@ -1786,9 +1787,14 @@ const Admin = () => {
                   </TabsTrigger>
                 )}
                 {canManagePages && (
-                  <TabsTrigger value="menus" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
-                    Menus
-                  </TabsTrigger>
+                  <>
+                    <TabsTrigger value="menus" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                      Menus
+                    </TabsTrigger>
+                    <TabsTrigger value="bottom-nav" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                      Bottom Nav
+                    </TabsTrigger>
+                  </>
                 )}
                 {canManageAds && (
                   <TabsTrigger value="ads" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
@@ -4344,6 +4350,10 @@ const Admin = () => {
             {/* Menus Tab */}
             <TabsContent value="menus" className="space-y-6">
               <MenuManager />
+            </TabsContent>
+
+            <TabsContent value="bottom-nav" className="space-y-6">
+              <BottomNavManager />
             </TabsContent>
 
             {/* Channels Tab */}
