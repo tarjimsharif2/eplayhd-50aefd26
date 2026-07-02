@@ -25,6 +25,7 @@ import NotFound from "./pages/NotFound";
 import MaintenancePage from "./pages/MaintenancePage";
 import ScrollToTop from "./components/ScrollToTop";
 import { AdClickProtectionProvider } from "./components/AdClickProtectionProvider";
+import BottomNav from "./components/BottomNav";
 
 // Maintenance mode wrapper - shows maintenance page for non-admin users
 const MaintenanceWrapper = ({ children }: { children: React.ReactNode }) => {
