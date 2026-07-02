@@ -490,17 +490,17 @@ const MatchPage = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
             >
-              <Card className="overflow-hidden border-border/50 bg-card/80 backdrop-blur">
-                <CardContent className="p-6">
+              <Card className="match-broadcast-surface overflow-hidden rounded-xl md:rounded-2xl backdrop-blur">
+                <CardContent className="p-5 md:p-6">
                   {/* Tournament & Sport Info */}
-                  <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                  <div className="flex flex-wrap items-center justify-between gap-4 mb-6 rounded-xl border border-border/45 bg-background/28 px-3 py-3">
                     <div className="flex items-center gap-3">
                       {tournament?.logo_url && (
                         <div
                           className={`w-10 h-10 rounded-xl p-1 border flex items-center justify-center flex-shrink-0 ${
                             (tournament as any)?.logo_background_color
                               ? 'border-border/30'
-                              : 'bg-background/60 border-border/30'
+                              : 'bg-background/60 border-border/40 shadow-sm'
                           }`}
                           style={(tournament as any)?.logo_background_color ? { backgroundColor: (tournament as any).logo_background_color } : undefined}
                         >
@@ -508,11 +508,11 @@ const MatchPage = () => {
                         </div>
                       )}
                       <div>
-                        <h2 className="font-display text-lg text-gradient">{tournament?.name || 'Match'}</h2>
+                        <h2 className="font-display text-lg text-gradient leading-tight">{tournament?.name || 'Match'}</h2>
                         <p className="text-sm text-muted-foreground">{sport?.name} • {tournament?.season}</p>
                       </div>
                     </div>
-                    <Badge variant={getStatusVariant(match.status)} className="text-sm px-4 py-1.5">
+                    <Badge variant={getStatusVariant(match.status)} className="text-sm px-4 py-1.5 shadow-sm">
                       {match.status === 'live' && <span className="w-2 h-2 bg-current rounded-full mr-2 animate-pulse" />}
                       {getStatusText(match.status)}
                     </Badge>
@@ -525,7 +525,7 @@ const MatchPage = () => {
                         className={`w-20 h-20 md:w-24 md:h-24 rounded-2xl flex items-center justify-center p-2 ${
                           teamA?.logo_background_color 
                             ? 'border border-border/30' 
-                            : 'bg-gradient-to-br from-primary/15 to-transparent border border-primary/20'
+                             : 'match-crest-frame'
                         }`}
                         style={teamA?.logo_background_color ? { backgroundColor: teamA.logo_background_color } : undefined}
                       >
@@ -535,12 +535,12 @@ const MatchPage = () => {
                           <span className="font-display text-2xl text-primary">{teamA?.short_name}</span>
                         )}
                       </div>
-                      <h1 className="font-semibold text-lg md:text-xl break-words text-center">{teamA?.name}</h1>
+                      <h1 className="font-semibold text-lg md:text-xl break-words text-center leading-tight">{teamA?.name}</h1>
                       {displayScoreA && <span className="text-2xl font-bold text-primary">{displayScoreA}</span>}
                     </div>
 
                     <div className="flex flex-col items-center gap-2 px-4">
-                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center border border-primary/30">
+                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/25 to-accent/25 flex items-center justify-center border border-primary/35 shadow-sm">
                         <span className="font-display text-lg text-foreground/80">VS</span>
                       </div>
                     </div>
@@ -550,7 +550,7 @@ const MatchPage = () => {
                         className={`w-20 h-20 md:w-24 md:h-24 rounded-2xl flex items-center justify-center p-2 ${
                           teamB?.logo_background_color 
                             ? 'border border-border/30' 
-                            : 'bg-gradient-to-br from-primary/15 to-transparent border border-primary/20'
+                             : 'match-crest-frame'
                         }`}
                         style={teamB?.logo_background_color ? { backgroundColor: teamB.logo_background_color } : undefined}
                       >
@@ -560,7 +560,7 @@ const MatchPage = () => {
                           <span className="font-display text-2xl text-primary">{teamB?.short_name}</span>
                         )}
                       </div>
-                      <h1 className="font-semibold text-lg md:text-xl break-words text-center">{teamB?.name}</h1>
+                      <h1 className="font-semibold text-lg md:text-xl break-words text-center leading-tight">{teamB?.name}</h1>
                       {displayScoreB && <span className="text-2xl font-bold text-primary">{displayScoreB}</span>}
                     </div>
                   </div>
@@ -657,17 +657,17 @@ const MatchPage = () => {
               transition={{ delay: 0.2 }}
               className="mt-6"
             >
-              <Card className="overflow-hidden border-border/50 bg-card/80 backdrop-blur">
-                <CardContent className="p-6">
+              <Card className="match-broadcast-surface overflow-hidden rounded-xl md:rounded-2xl backdrop-blur">
+                <CardContent className="p-5 md:p-6">
                   {/* Tournament & Sport Info */}
-                  <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                  <div className="flex flex-wrap items-center justify-between gap-4 mb-6 rounded-xl border border-border/45 bg-background/28 px-3 py-3">
                     <div className="flex items-center gap-3">
                       {tournament?.logo_url && (
                         <div
                           className={`w-10 h-10 rounded-xl p-1 border flex items-center justify-center flex-shrink-0 ${
                             (tournament as any)?.logo_background_color
                               ? 'border-border/30'
-                              : 'bg-background/60 border-border/30'
+                              : 'bg-background/60 border-border/40 shadow-sm'
                           }`}
                           style={(tournament as any)?.logo_background_color ? { backgroundColor: (tournament as any).logo_background_color } : undefined}
                         >
@@ -675,11 +675,11 @@ const MatchPage = () => {
                         </div>
                       )}
                       <div>
-                        <h2 className="font-display text-lg text-gradient">{tournament?.name || 'Match'}</h2>
+                        <h2 className="font-display text-lg text-gradient leading-tight">{tournament?.name || 'Match'}</h2>
                         <p className="text-sm text-muted-foreground">{sport?.name} • {tournament?.season}</p>
                       </div>
                     </div>
-                    <Badge variant={getStatusVariant(match.status)} className="text-sm px-4 py-1.5">
+                    <Badge variant={getStatusVariant(match.status)} className="text-sm px-4 py-1.5 shadow-sm">
                       {match.status === 'live' && <span className="w-2 h-2 bg-current rounded-full mr-2 animate-pulse" />}
                       {getStatusText(match.status)}
                     </Badge>
@@ -692,7 +692,7 @@ const MatchPage = () => {
                         className={`w-20 h-20 md:w-24 md:h-24 rounded-2xl flex items-center justify-center p-2 ${
                           teamA?.logo_background_color 
                             ? 'border border-border/30' 
-                            : 'bg-gradient-to-br from-primary/15 to-transparent border border-primary/20'
+                             : 'match-crest-frame'
                         }`}
                         style={teamA?.logo_background_color ? { backgroundColor: teamA.logo_background_color } : undefined}
                       >
@@ -702,12 +702,12 @@ const MatchPage = () => {
                           <span className="font-display text-2xl text-primary">{teamA?.short_name}</span>
                         )}
                       </div>
-                      <h1 className="font-semibold text-lg md:text-xl break-words text-center">{teamA?.name}</h1>
+                      <h1 className="font-semibold text-lg md:text-xl break-words text-center leading-tight">{teamA?.name}</h1>
                       {displayScoreA && <span className="text-2xl font-bold text-primary">{displayScoreA}</span>}
                     </div>
 
                     <div className="flex flex-col items-center gap-2 px-4">
-                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center border border-primary/30">
+                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary/25 to-accent/25 flex items-center justify-center border border-primary/35 shadow-sm">
                         <span className="font-display text-lg text-foreground/80">VS</span>
                       </div>
                     </div>
@@ -717,7 +717,7 @@ const MatchPage = () => {
                         className={`w-20 h-20 md:w-24 md:h-24 rounded-2xl flex items-center justify-center p-2 ${
                           teamB?.logo_background_color 
                             ? 'border border-border/30' 
-                            : 'bg-gradient-to-br from-primary/15 to-transparent border border-primary/20'
+                             : 'match-crest-frame'
                         }`}
                         style={teamB?.logo_background_color ? { backgroundColor: teamB.logo_background_color } : undefined}
                       >
@@ -727,7 +727,7 @@ const MatchPage = () => {
                           <span className="font-display text-2xl text-primary">{teamB?.short_name}</span>
                         )}
                       </div>
-                      <h1 className="font-semibold text-lg md:text-xl break-words text-center">{teamB?.name}</h1>
+                      <h1 className="font-semibold text-lg md:text-xl break-words text-center leading-tight">{teamB?.name}</h1>
                       {displayScoreB && <span className="text-2xl font-bold text-primary">{displayScoreB}</span>}
                     </div>
                   </div>
