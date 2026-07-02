@@ -25,7 +25,15 @@ const Header = () => {
   const { data: tournaments } = useTournaments();
   const { data: customMenus } = useCustomMenus();
 
-  const menuTournaments = tournaments?.filter((t) => t.is_active && t.show_in_menu && !t.is_completed) || [];
+  const menuTournaments = tournaments?.filter((t) => {
+    if (!(t.is_active && t.show_in_menu && !t.is_completed)) return false;
+    if ((t as any).end_date) {
+      const d = new Date((t as any).end_date);
+      const today = new Date(); today.setHours(0,0,0,0);
+      if (d < today) return false;
+    }
+    return true;
+  }) || [];
   const menuTree = customMenus ? buildMenuTree(customMenus) : [];
 
   // Group tournaments by sport for Tournaments menu
