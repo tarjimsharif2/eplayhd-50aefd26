@@ -11,6 +11,9 @@ interface Player {
   batting_order: number | null;
   player_image?: string | null;
   is_bench?: boolean;
+  jersey_number?: number | null;
+  formation?: string | null;
+  formation_place?: number | null;
 }
 
 interface Substitution {
