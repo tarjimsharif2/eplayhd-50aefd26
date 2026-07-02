@@ -322,6 +322,7 @@ const Admin = () => {
     player_load_time_seconds: 0,
     // Default iframe fallback when no server exists
     default_iframe_url: '',
+    default_iframe_enabled: false,
     // Homepage completed matches days
     homepage_completed_days: 2,
     // Homepage channels limit
@@ -382,6 +383,7 @@ const Admin = () => {
         slider_duration_seconds: (siteSettings as any).slider_duration_seconds || 6,
         player_load_time_seconds: (siteSettings as any).player_load_time_seconds ?? 0,
         default_iframe_url: (siteSettings as any).default_iframe_url ?? '',
+        default_iframe_enabled: (siteSettings as any).default_iframe_enabled ?? false,
         homepage_completed_days: (siteSettings as any).homepage_completed_days || 2,
         homepage_channels_limit: (siteSettings as any).homepage_channels_limit || 8,
         admin_slug: (siteSettings as any).admin_slug || 'admin',
@@ -1690,6 +1692,7 @@ const Admin = () => {
         slider_duration_seconds: siteSettingsForm.slider_duration_seconds || 6,
         player_load_time_seconds: (siteSettingsForm as any).player_load_time_seconds ?? 0,
         default_iframe_url: (siteSettingsForm as any).default_iframe_url || null,
+        default_iframe_enabled: (siteSettingsForm as any).default_iframe_enabled ?? false,
         // Homepage completed matches days
         homepage_completed_days: (siteSettingsForm as any).homepage_completed_days || 2,
         // Homepage channels limit
@@ -4752,12 +4755,24 @@ const Admin = () => {
                           <p className="text-xs text-muted-foreground">Countdown shown before the video iframe loads (0 = instant, like Dooplay)</p>
                         </div>
                         <div className="space-y-2 md:col-span-2">
-                          <Label>Default Iframe URL (Fallback Player)</Label>
+                          <div className="flex items-center justify-between gap-4">
+                            <Label>Default Iframe URL (Fallback Player)</Label>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">
+                                {(siteSettingsForm as any).default_iframe_enabled ? 'On' : 'Off'}
+                              </span>
+                              <Switch
+                                checked={!!(siteSettingsForm as any).default_iframe_enabled}
+                                onCheckedChange={(checked) => setSiteSettingsForm({ ...siteSettingsForm, default_iframe_enabled: checked } as any)}
+                              />
+                            </div>
+                          </div>
                           <Input
                             type="url"
                             placeholder="https://example.com/player.html"
                             value={(siteSettingsForm as any).default_iframe_url ?? ''}
                             onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, default_iframe_url: e.target.value } as any)}
+                            disabled={!(siteSettingsForm as any).default_iframe_enabled}
                           />
                           <p className="text-xs text-muted-foreground">Shown on match pages that have no streaming servers. Hidden automatically once any server is added. No name, no server list.</p>
                         </div>

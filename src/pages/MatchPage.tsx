@@ -295,7 +295,7 @@ const MatchPage = () => {
                       <p>Loading streaming servers...</p>
                     </div>
                   </div>
-                ) : (publicSettings as any)?.default_iframe_url ? (
+                ) : (publicSettings as any)?.default_iframe_enabled && (publicSettings as any)?.default_iframe_url ? (
                   <VideoPlayer
                     key="default-iframe"
                     url={(publicSettings as any).default_iframe_url}
