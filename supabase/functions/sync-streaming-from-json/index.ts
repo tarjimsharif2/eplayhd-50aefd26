@@ -108,13 +108,27 @@ Deno.serve(async (req) => {
     const matchIds = matches.map((m: any) => m.id);
     const { data: existingAuto } = await supabase
       .from("streaming_servers")
-      .select("id, match_id, auto_source_id, server_url, server_name")
+      .select("id, match_id, auto_source_id, server_url, server_name, display_order")
       .in("match_id", matchIds)
       .not("auto_source_id", "is", null);
 
     const existingMap = new Map<string, any>();
     for (const s of existingAuto || []) {
       existingMap.set(`${s.match_id}::${s.auto_source_id}`, s);
+    }
+
+    // Fetch manual (non-auto) servers to determine base display_order per match.
+    // Auto servers must be placed AFTER all manual servers, preserving manual order.
+    const { data: manualServers } = await supabase
+      .from("streaming_servers")
+      .select("match_id, display_order")
+      .in("match_id", matchIds)
+      .is("auto_source_id", null);
+
+    const manualMaxOrder = new Map<string, number>();
+    for (const s of manualServers || []) {
+      const cur = manualMaxOrder.get(s.match_id) || 0;
+      if ((s.display_order || 0) > cur) manualMaxOrder.set(s.match_id, s.display_order || 0);
     }
 
     let totalAdded = 0, totalUpdated = 0, totalKept = 0;
@@ -175,6 +189,8 @@ Deno.serve(async (req) => {
           // Increment per-match counter -> Server 1, Server 2, ...
           const nextNum = (matchServerCount.get(m.id) || 0) + 1;
           matchServerCount.set(m.id, nextNum);
+          // display_order is placed AFTER manual servers so manual ones keep their position.
+          const orderPos = (manualMaxOrder.get(m.id) || 0) + nextNum;
           // If source has "use entry name" enabled, prefer the JSON entry's
           // serverName / server_name / channelName field; fall back to entry name.
           const rawName = useEntryName
@@ -190,7 +206,12 @@ Deno.serve(async (req) => {
                 server_url: playerUrl,
                 server_name: serverName,
                 is_working: true,
-                display_order: nextNum,
+                display_order: orderPos,
+              }).eq("id", existing.id);
+              totalUpdated++;
+            } else if ((existing.display_order || 0) !== orderPos) {
+              await supabase.from("streaming_servers").update({
+                display_order: orderPos,
               }).eq("id", existing.id);
               totalUpdated++;
             } else {
@@ -202,7 +223,7 @@ Deno.serve(async (req) => {
               server_name: serverName,
               server_url: playerUrl,
               server_type: "iframe",
-              display_order: nextNum,
+              display_order: orderPos,
               is_active: true,
               auto_source_id: autoId,
             });
