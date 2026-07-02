@@ -458,8 +458,8 @@ serve(async (req) => {
 
       // Lineup sync (same logic as before)
       if (lineupTeamA?.length || lineupTeamB?.length) {
-        const { data: existingTeamAPlayers } = await supabase.from('match_playing_xi').select('id, player_image, formation_place').eq('match_id', dbMatch.id).eq('team_id', teamAId);
-        const { data: existingTeamBPlayers } = await supabase.from('match_playing_xi').select('id, player_image, formation_place').eq('match_id', dbMatch.id).eq('team_id', teamBId);
+        const { data: existingTeamAPlayers } = await supabase.from('match_playing_xi').select('id, player_name, player_role, player_image, jersey_number, formation, formation_place, is_bench').eq('match_id', dbMatch.id).eq('team_id', teamAId);
+        const { data: existingTeamBPlayers } = await supabase.from('match_playing_xi').select('id, player_name, player_role, player_image, jersey_number, formation, formation_place, is_bench').eq('match_id', dbMatch.id).eq('team_id', teamBId);
         const existingTeamACount = existingTeamAPlayers?.length || 0;
         const existingTeamBCount = existingTeamBPlayers?.length || 0;
         const newTeamACount = lineupTeamA?.length || 0;
@@ -473,9 +473,26 @@ serve(async (req) => {
         const teamBMissingFormation = existingTeamBCount > 0 && (existingTeamBPlayers || []).every(p => p.formation_place == null);
         const newTeamAHasFormation = (lineupTeamA || []).some(p => p.formationPlace != null);
         const newTeamBHasFormation = (lineupTeamB || []).some(p => p.formationPlace != null);
+        const normalizeName = (name: string) => name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+        const needsAuthoritativeRefresh = (existing: any[] | null | undefined, incoming: PlayerInfo[] | undefined) => {
+          if (!existing?.length || !incoming?.length) return false;
+          const existingByName = new Map(existing.map(p => [normalizeName(p.player_name || ''), p]));
+          return incoming.some(p => {
+            const old = existingByName.get(normalizeName(p.name));
+            if (!old) return true;
+            const jn = p.jerseyNumber != null ? parseInt(String(p.jerseyNumber), 10) : null;
+            return (old.player_role || '') !== (p.position || '')
+              || (old.formation || null) !== (p.formation || null)
+              || (old.formation_place || null) !== (p.formationPlace || null)
+              || (old.jersey_number || null) !== jn
+              || Boolean(old.is_bench) !== Boolean(p.isSub);
+          });
+        };
+        const teamAStaleEspnData = source === 'espn' && needsAuthoritativeRefresh(existingTeamAPlayers, lineupTeamA);
+        const teamBStaleEspnData = source === 'espn' && needsAuthoritativeRefresh(existingTeamBPlayers, lineupTeamB);
         // Resync when we have NEW info: more players, missing images, or missing formation data
-        const needsTeamASync = newTeamACount > 0 && (existingTeamACount === 0 || newTeamACount > existingTeamACount || (teamAMissingImages && newTeamAHasImages) || (teamAMissingFormation && newTeamAHasFormation));
-        const needsTeamBSync = newTeamBCount > 0 && (existingTeamBCount === 0 || newTeamBCount > existingTeamBCount || (teamBMissingImages && newTeamBHasImages) || (teamBMissingFormation && newTeamBHasFormation));
+        const needsTeamASync = newTeamACount > 0 && (existingTeamACount === 0 || newTeamACount > existingTeamACount || (teamAMissingImages && newTeamAHasImages) || (teamAMissingFormation && newTeamAHasFormation) || teamAStaleEspnData);
+        const needsTeamBSync = newTeamBCount > 0 && (existingTeamBCount === 0 || newTeamBCount > existingTeamBCount || (teamBMissingImages && newTeamBHasImages) || (teamBMissingFormation && newTeamBHasFormation) || teamBStaleEspnData);
         if (needsTeamASync || needsTeamBSync) {
           const lineupInserts: any[] = [];
           if (needsTeamASync && lineupTeamA) {
