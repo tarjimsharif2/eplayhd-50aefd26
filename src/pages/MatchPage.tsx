@@ -266,7 +266,7 @@ const MatchPage = () => {
             animate={{ opacity: 1, y: 0 }}
             className="mb-6"
           >
-            <Card className="overflow-hidden border-border/50 bg-card/80 backdrop-blur">
+            <Card className="overflow-hidden rounded-2xl border-white/10 bg-[#120a1a]/60 backdrop-blur-xl ring-1 ring-inset ring-white/10 shadow-2xl">
               <CardContent className="p-0">
                 {activeServer ? (
                   <VideoPlayer 
@@ -318,14 +318,11 @@ const MatchPage = () => {
               transition={{ delay: 0.1 }}
               className="mb-6"
             >
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Select Server</span>
-                </div>
-                <span className="text-[10px] font-semibold text-muted-foreground/60">{servers.length} Available</span>
+              <div className="flex items-center justify-between px-1 mb-3">
+                <h3 className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Select Feed</h3>
+                <span className="text-[9px] text-primary font-bold tracking-tighter uppercase">{servers.length} Streams Available</span>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
                 {servers.map((server) => {
                   const isActive = activeServer?.id === server.id;
                   return (
@@ -333,18 +330,16 @@ const MatchPage = () => {
                       key={server.id}
                       onClick={() => setActiveServer(server)}
                       className={cn(
-                        "relative flex items-center justify-center gap-1.5 h-9 px-2 rounded-lg text-[11px] font-semibold tracking-tight transition-all active:scale-[0.97]",
+                        "relative h-12 rounded-xl px-2 flex flex-col items-center justify-center text-[10px] font-bold uppercase tracking-tight transition-all active:scale-[0.97]",
                         isActive
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "bg-card border border-border text-foreground hover:bg-accent hover:border-primary/30"
+                          ? "bg-primary text-primary-foreground border-t border-white/30 shadow-lg shadow-primary/40"
+                          : "bg-white/[0.04] border border-white/10 text-foreground/70 hover:bg-white/[0.08] hover:text-foreground"
                       )}
                     >
+                      <span className="truncate max-w-full">{server.server_name}</span>
                       {isActive && (
-                        <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                        </svg>
+                        <span className="mt-0.5 text-[8px] font-medium tracking-widest text-white/70 leading-none">HD LIVE</span>
                       )}
-                      <span className="truncate">{server.server_name}</span>
                     </button>
                   );
                 })}
