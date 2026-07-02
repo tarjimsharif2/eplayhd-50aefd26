@@ -194,6 +194,7 @@ const App = () => (
                   <Route path="/:dynamicAdmin" element={<DynamicAdminRoute />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
+                <GlobalBottomNav />
                 </MaintenanceWrapper>
               </GoogleAnalyticsProvider>
             </BrowserRouter>
