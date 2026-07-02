@@ -16,24 +16,35 @@ export type ImageOpts = {
 export function optimizeImage(url: string | null | undefined, opts: ImageOpts = {}): string {
   if (!url) return '';
   try {
-    // Only transform Supabase storage public object URLs
-    // e.g. https://xxx.supabase.co/storage/v1/object/public/bucket/path.png
     const marker = '/storage/v1/object/public/';
     const idx = url.indexOf(marker);
-    if (idx === -1) return url;
+    if (idx !== -1) {
+      const base = url.substring(0, idx);
+      const rest = url.substring(idx + marker.length);
+      const [path, existingQuery] = rest.split('?');
+      const params = new URLSearchParams(existingQuery || '');
+      if (opts.width) params.set('width', String(Math.round(opts.width)));
+      if (opts.height) params.set('height', String(Math.round(opts.height)));
+      params.set('quality', String(opts.quality ?? 70));
+      if (opts.resize) params.set('resize', opts.resize);
+      return `${base}/storage/v1/render/image/public/${path}?${params.toString()}`;
+    }
 
-    const base = url.substring(0, idx);
-    const rest = url.substring(idx + marker.length);
-    // Strip any existing query string on the source
-    const [path, existingQuery] = rest.split('?');
-
-    const params = new URLSearchParams(existingQuery || '');
-    if (opts.width) params.set('width', String(Math.round(opts.width)));
-    if (opts.height) params.set('height', String(Math.round(opts.height)));
-    params.set('quality', String(opts.quality ?? 70));
-    if (opts.resize) params.set('resize', opts.resize);
-
-    return `${base}/storage/v1/render/image/public/${path}?${params.toString()}`;
+    // External URL: proxy via images.weserv.nl for resize + WebP/AVIF
+    if (!/^https?:\/\//i.test(url)) return url;
+    if (/^data:|\.svg(\?|$)/i.test(url)) return url;
+    // wsrv.nl requires host without scheme
+    const stripped = url.replace(/^https?:\/\//i, '');
+    const params = new URLSearchParams();
+    params.set('url', stripped);
+    if (opts.width) params.set('w', String(Math.round(opts.width)));
+    if (opts.height) params.set('h', String(Math.round(opts.height)));
+    params.set('q', String(opts.quality ?? 75));
+    params.set('output', 'webp');
+    if (opts.resize === 'contain') params.set('fit', 'contain');
+    else if (opts.resize === 'fill') params.set('fit', 'fill');
+    else params.set('fit', 'cover');
+    return `https://images.weserv.nl/?${params.toString()}`;
   } catch {
     return url;
   }
@@ -48,8 +59,8 @@ export function optimizeSrcSet(
   opts: Omit<ImageOpts, 'width'> = {}
 ): string | undefined {
   if (!url) return undefined;
-  const marker = '/storage/v1/object/public/';
-  if (!url.includes(marker)) return undefined;
+  if (!/^https?:\/\//i.test(url)) return undefined;
+  if (/^data:|\.svg(\?|$)/i.test(url)) return undefined;
   return [1, 2]
     .map((dpr) => `${optimizeImage(url, { ...opts, width: baseWidth * dpr })} ${dpr}x`)
     .join(', ');
