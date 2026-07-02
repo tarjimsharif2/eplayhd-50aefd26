@@ -444,11 +444,9 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
           {(() => {
             // Only show football scores for live/completed matches (not upcoming)
             // Hide scoreboard for manual-source matches unless explicitly enabled
-            const isManualSource = ((match as any).score_source ?? 'manual') === 'manual';
-            const manualScoreboardEnabled = !!(match as any).manual_scoreboard_enabled;
-            const scoreboardAllowed = !isManualSource || manualScoreboardEnabled;
             const isFootballActive = isFootball && (displayStatus === 'live' || displayStatus === 'completed');
-            const hasFootballScore = isFootballActive && scoreboardAllowed;
+            // Football score always shows for live/completed matches
+            const hasFootballScore = isFootballActive;
             
             // Parse goal data from match - ensure arrays
             const goalsTeamA: GoalEvent[] = Array.isArray(match.goals_team_a) ? match.goals_team_a as GoalEvent[] : [];
