@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,19 +11,19 @@ import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { usePublicSiteSettings } from "@/hooks/usePublicSiteSettings";
 import CustomCodeInjector from "@/components/CustomCodeInjector";
 import GoogleAnalyticsProvider from "@/components/GoogleAnalyticsProvider";
-import Index from "./pages/Index";
-import Admin from "./pages/Admin";
-import Auth from "./pages/Auth";
-import MatchPage from "./pages/MatchPage";
-import TournamentPage from "./pages/TournamentPage";
-import ChannelPage from "./pages/ChannelPage";
-import ChannelsPage from "./pages/ChannelsPage";
-import TournamentsPage from "./pages/TournamentsPage";
-import DynamicPage from "./pages/DynamicPage";
-import AdsTxt from "./pages/AdsTxt";
-import Sitemap from "./pages/Sitemap";
+import Index from "./pages/Index"; // eager: LCP route
 import NotFound from "./pages/NotFound";
-import MaintenancePage from "./pages/MaintenancePage";
+const Admin = lazy(() => import("./pages/Admin"));
+const Auth = lazy(() => import("./pages/Auth"));
+const MatchPage = lazy(() => import("./pages/MatchPage"));
+const TournamentPage = lazy(() => import("./pages/TournamentPage"));
+const ChannelPage = lazy(() => import("./pages/ChannelPage"));
+const ChannelsPage = lazy(() => import("./pages/ChannelsPage"));
+const TournamentsPage = lazy(() => import("./pages/TournamentsPage"));
+const DynamicPage = lazy(() => import("./pages/DynamicPage"));
+const AdsTxt = lazy(() => import("./pages/AdsTxt"));
+const Sitemap = lazy(() => import("./pages/Sitemap"));
+const MaintenancePage = lazy(() => import("./pages/MaintenancePage"));
 import ScrollToTop from "./components/ScrollToTop";
 import { AdClickProtectionProvider } from "./components/AdClickProtectionProvider";
 import BottomNav from "./components/BottomNav";
@@ -148,11 +148,12 @@ const DynamicAdminRoute = () => {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60, // Data is fresh for 1 minute
-      gcTime: 1000 * 60 * 5, // Cache for 5 minutes
-      refetchOnWindowFocus: true, // Refetch when window regains focus
-      refetchOnMount: true, // Always refetch on component mount
-      refetchOnReconnect: true, // Refetch when network reconnects
+      staleTime: 1000 * 60 * 2,
+      gcTime: 1000 * 60 * 30,
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: true,
+      retry: 1,
     },
   },
 });
@@ -177,6 +178,7 @@ const App = () => (
               <ScrollToTop />
               <GoogleAnalyticsProvider>
                 <MaintenanceWrapper>
+                <Suspense fallback={null}>
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/admin" element={<ProtectedAdminRoute />} />
@@ -196,6 +198,7 @@ const App = () => (
                   <Route path="/:dynamicAdmin" element={<DynamicAdminRoute />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
+                </Suspense>
                 <GlobalBottomNav />
                 </MaintenanceWrapper>
               </GoogleAnalyticsProvider>
