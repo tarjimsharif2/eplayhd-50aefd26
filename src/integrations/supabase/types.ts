@@ -612,11 +612,14 @@ export type Database = {
           batting_order: number | null
           change_status: string | null
           created_at: string
+          formation: string | null
+          formation_place: number | null
           id: string
           is_bench: boolean | null
           is_captain: boolean | null
           is_vice_captain: boolean | null
           is_wicket_keeper: boolean | null
+          jersey_number: number | null
           match_id: string
           player_image: string | null
           player_name: string
@@ -629,11 +632,14 @@ export type Database = {
           batting_order?: number | null
           change_status?: string | null
           created_at?: string
+          formation?: string | null
+          formation_place?: number | null
           id?: string
           is_bench?: boolean | null
           is_captain?: boolean | null
           is_vice_captain?: boolean | null
           is_wicket_keeper?: boolean | null
+          jersey_number?: number | null
           match_id: string
           player_image?: string | null
           player_name: string
@@ -646,11 +652,14 @@ export type Database = {
           batting_order?: number | null
           change_status?: string | null
           created_at?: string
+          formation?: string | null
+          formation_place?: number | null
           id?: string
           is_bench?: boolean | null
           is_captain?: boolean | null
           is_vice_captain?: boolean | null
           is_wicket_keeper?: boolean | null
+          jersey_number?: number | null
           match_id?: string
           player_image?: string | null
           player_name?: string

@@ -11,6 +11,9 @@ interface Player {
   batting_order: number | null;
   player_image?: string | null;
   is_bench?: boolean;
+  jersey_number?: number | null;
+  formation?: string | null;
+  formation_place?: number | null;
 }
 
 interface Substitution {
@@ -260,7 +263,7 @@ const parsePosition = (role: string | null): { row: number; sideOrder: number } 
 const buildCurrentPitch = (allPlayers: Player[]): Player[] =>
   allPlayers.filter(p => !p.is_bench);
 
-/* ─── Group players by pitch row ─── */
+/* ─── Group players by pitch row using their parsed position ─── */
 const groupPlayersByRow = (players: Player[]) => {
   const groups: Record<number, { player: Player; sideOrder: number }[]> = {};
   players.forEach(p => {
@@ -272,13 +275,76 @@ const groupPlayersByRow = (players: Player[]) => {
   return groups;
 };
 
-/* ─── Formation string ─── */
-const getFormation = (players: Player[]) => {
-  const groups = groupPlayersByRow(players);
-  return [1, 2, 3, 4, 5]
-    .map(r => (groups[r] ?? []).length)
-    .filter(n => n > 0)
-    .join('-');
+/* ─── Detect the ESPN-provided formation on any starter ─── */
+const detectFormation = (players: Player[]): string | null => {
+  for (const p of players) {
+    if (p.formation && /^\d+(-\d+)+$/.test(p.formation.trim())) return p.formation.trim();
+  }
+  return null;
+};
+
+/* ─── Build pitch rows honoring ESPN formation (e.g. "4-2-3-1") ─── */
+const buildRowsForFormation = (
+  starters: Player[],
+  formation: string | null,
+): { rows: { player: Player; sideOrder: number }[][]; formation: string } => {
+  // Split GK from outfield
+  const gk: Player[] = [];
+  const outfield: Player[] = [];
+  for (const p of starters) {
+    const { row } = parsePosition(p.player_role);
+    if (row === 0) gk.push(p); else outfield.push(p);
+  }
+  // If GK not detected but we have 11 starters, treat lowest-place as GK
+  if (gk.length === 0 && outfield.length === 11) {
+    const withPlace = outfield.filter(p => p.formation_place != null);
+    if (withPlace.length) {
+      withPlace.sort((a, b) => (a.formation_place ?? 999) - (b.formation_place ?? 999));
+      gk.push(withPlace[0]);
+      const idx = outfield.indexOf(withPlace[0]);
+      if (idx >= 0) outfield.splice(idx, 1);
+    }
+  }
+
+  // Sort outfield by (row asc = defence→attack, sideOrder asc = left→right)
+  const sorted = outfield
+    .map(p => ({ player: p, ...parsePosition(p.player_role) }))
+    .sort((a, b) => a.row - b.row || a.sideOrder - b.sideOrder);
+
+  // Determine row sizes from formation string
+  let sizes: number[] | null = null;
+  if (formation) {
+    const parts = formation.split('-').map(n => parseInt(n, 10)).filter(n => n > 0);
+    if (parts.length >= 2 && parts.reduce((a, b) => a + b, 0) === sorted.length) sizes = parts;
+  }
+
+  const rows: { player: Player; sideOrder: number }[][] = [];
+  // GK row first (row 0)
+  if (gk.length) rows.push(gk.map(p => ({ player: p, sideOrder: 50 })));
+
+  if (sizes) {
+    let cursor = 0;
+    for (const size of sizes) {
+      const slice = sorted.slice(cursor, cursor + size);
+      // sort each row left→right
+      slice.sort((a, b) => a.sideOrder - b.sideOrder);
+      rows.push(slice.map(({ player, sideOrder }) => ({ player, sideOrder })));
+      cursor += size;
+    }
+  } else {
+    // Fallback: keep parsePosition rows
+    const grouped: Record<number, { player: Player; sideOrder: number }[]> = {};
+    for (const item of sorted) {
+      (grouped[item.row] ||= []).push({ player: item.player, sideOrder: item.sideOrder });
+    }
+    [1, 2, 3, 4, 5].forEach(r => {
+      if (grouped[r]?.length) rows.push(grouped[r].sort((a, b) => a.sideOrder - b.sideOrder));
+    });
+  }
+
+  // Final formation string (skip GK row for display)
+  const outSizes = rows.slice(gk.length ? 1 : 0).map(r => r.length).filter(n => n > 0);
+  return { rows, formation: outSizes.join('-') };
 };
 
 /* ─── Jersey SVG ─── */
@@ -362,15 +428,21 @@ interface PlayerChipProps {
 const PlayerChip = ({ player, goals, subs, primaryColor, secondaryColor }: PlayerChipProps) => {
   const scored = goals.filter(g => nameMatch(g.player, player.player_name));
   const subOut = subs.find(s => nameMatch(s.player_out, player.player_name));
-  const lastName = player.player_name.split(' ').pop() ?? player.player_name;
+  const jerseyNum = player.jersey_number ?? player.batting_order ?? null;
+  // Display: full name if short, otherwise "F. LastName"
+  const parts = player.player_name.trim().split(/\s+/);
+  const displayName =
+    player.player_name.length <= 14 || parts.length === 1
+      ? player.player_name
+      : `${parts[0][0]}. ${parts.slice(1).join(' ')}`;
 
   return (
-    <div className="flex flex-col items-center gap-0.5" style={{ minWidth: 48, maxWidth: 62 }}>
+    <div className="flex flex-col items-center gap-0.5" style={{ minWidth: 52, maxWidth: 74 }}>
       <div className="relative">
         <JerseySVG
           primaryColor={primaryColor}
           secondaryColor={secondaryColor}
-          number={player.batting_order}
+          number={jerseyNum}
         />
 
         {/* Goal badge */}
@@ -409,17 +481,17 @@ const PlayerChip = ({ player, goals, subs, primaryColor, secondaryColor }: Playe
         )}
       </div>
 
-      {/* Player last name */}
+      {/* Player name (full when it fits) */}
       <span
-        className="text-[9px] font-bold text-center leading-tight drop-shadow truncate"
-        style={{ maxWidth: 58, color: 'white' }}
+        className="text-[9px] font-bold text-center leading-tight drop-shadow"
+        style={{ maxWidth: 72, color: 'white', wordBreak: 'break-word' }}
       >
-        {lastName}
+        {displayName}
       </span>
 
       {/* Position label */}
       {player.player_role && (
-        <span className="text-[7px] text-white/50 text-center leading-none truncate" style={{ maxWidth: 58 }}>
+        <span className="text-[7px] text-white/50 text-center leading-none truncate" style={{ maxWidth: 72 }}>
           {player.player_role}
         </span>
       )}
@@ -473,14 +545,16 @@ const FootballPitchLineup = ({
   const pitchA = useMemo(() => buildCurrentPitch(teamAPlayers), [teamAPlayers]);
   const pitchB = useMemo(() => buildCurrentPitch(teamBPlayers), [teamBPlayers]);
 
-  const groupsA = useMemo(() => groupPlayersByRow(pitchA), [pitchA]);
-  const groupsB = useMemo(() => groupPlayersByRow(pitchB), [pitchB]);
+  const espnFormationA = useMemo(() => detectFormation(pitchA), [pitchA]);
+  const espnFormationB = useMemo(() => detectFormation(pitchB), [pitchB]);
 
-  const formationA = useMemo(() => getFormation(pitchA), [pitchA]);
-  const formationB = useMemo(() => getFormation(pitchB), [pitchB]);
+  const layoutA = useMemo(() => buildRowsForFormation(pitchA, espnFormationA), [pitchA, espnFormationA]);
+  const layoutB = useMemo(() => buildRowsForFormation(pitchB, espnFormationB), [pitchB, espnFormationB]);
 
-  const rowsA = ([0, 1, 2, 3, 4, 5] as const).filter(r => (groupsA[r] ?? []).length > 0);
-  const rowsB = ([0, 1, 2, 3, 4, 5] as const).filter(r => (groupsB[r] ?? []).length > 0);
+  const rowsA = layoutA.rows;
+  const rowsB = layoutB.rows;
+  const formationA = espnFormationA || layoutA.formation;
+  const formationB = espnFormationB || layoutB.formation;
 
 
 
@@ -546,10 +620,10 @@ const FootballPitchLineup = ({
         </div>
 
         <div className="flex flex-col gap-0.5">
-          {rowsB.map(r => (
+          {rowsB.map((row, idx) => (
             <PitchRow
-              key={r}
-              row={groupsB[r]!}
+              key={`b-${idx}`}
+              row={row}
               goals={goalsTeamB}
               subs={teamBSubs}
               primaryColor={colorB.primary}
@@ -567,10 +641,10 @@ const FootballPitchLineup = ({
       {/* ── TEAM A – bottom half (FW toward centre → GK at bottom) ── */}
       <div className="relative z-10 pt-0 pb-2" style={{ minHeight: '47%' }}>
         <div className="flex flex-col gap-0.5">
-          {[...rowsA].reverse().map(r => (
+          {[...rowsA].reverse().map((row, idx) => (
             <PitchRow
-              key={r}
-              row={groupsA[r]!}
+              key={`a-${idx}`}
+              row={row}
               goals={goalsTeamA}
               subs={teamASubs}
               primaryColor={colorA.primary}

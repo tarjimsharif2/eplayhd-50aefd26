@@ -26,6 +26,8 @@ interface PlayerInfo {
   isCaptain?: boolean;
   playerImage?: string;
   isSub?: boolean;
+  formation?: string;
+  formationPlace?: number;
 }
 
 interface FootballMatch {
@@ -263,9 +265,12 @@ serve(async (req) => {
         for (const roster of (data?.rosters || [])) {
           const isHome = roster.homeAway === 'home';
           const target = isHome ? homeLineup : awayLineup;
+          const formationName = roster?.formation?.name || roster?.formation || null;
           for (const entry of (roster.roster || [])) {
             const a = entry.athlete;
             if (!a) continue;
+            const fpRaw = entry.formationPlace;
+            const fp = fpRaw != null && fpRaw !== '' ? parseInt(String(fpRaw), 10) : null;
             target.push({
               name: a.displayName || a.fullName || 'Unknown',
               position: entry.position?.abbreviation || a.position?.abbreviation || '',
@@ -273,6 +278,8 @@ serve(async (req) => {
               isCaptain: !!entry.captain,
               playerImage: pickHeadshot(a),
               isSub: entry.starter === false,
+              formation: formationName || undefined,
+              formationPlace: Number.isFinite(fp as number) && (fp as number) > 0 ? (fp as number) : undefined,
             });
           }
           // Coach (single object or array depending on payload)
@@ -461,14 +468,16 @@ serve(async (req) => {
             if (existingTeamACount > 0) await supabase.from('match_playing_xi').delete().eq('match_id', dbMatch.id).eq('team_id', teamAId);
             for (let i = 0; i < lineupTeamA.length; i++) {
               const p = lineupTeamA[i];
-              lineupInserts.push({ match_id: dbMatch.id, team_id: teamAId, player_name: p.name, player_role: p.position || null, batting_order: i + 1, is_captain: p.isCaptain || false, is_vice_captain: false, is_bench: !!p.isSub, player_image: p.playerImage || null });
+              const jn = p.jerseyNumber != null ? parseInt(String(p.jerseyNumber), 10) : NaN;
+              lineupInserts.push({ match_id: dbMatch.id, team_id: teamAId, player_name: p.name, player_role: p.position || null, batting_order: Number.isFinite(jn) ? jn : (i + 1), jersey_number: Number.isFinite(jn) ? jn : null, formation: p.formation || null, formation_place: p.formationPlace || null, is_captain: p.isCaptain || false, is_vice_captain: false, is_bench: !!p.isSub, player_image: p.playerImage || null });
             }
           }
           if (needsTeamBSync && lineupTeamB) {
             if (existingTeamBCount > 0) await supabase.from('match_playing_xi').delete().eq('match_id', dbMatch.id).eq('team_id', teamBId);
             for (let i = 0; i < lineupTeamB.length; i++) {
               const p = lineupTeamB[i];
-              lineupInserts.push({ match_id: dbMatch.id, team_id: teamBId, player_name: p.name, player_role: p.position || null, batting_order: i + 1, is_captain: p.isCaptain || false, is_vice_captain: false, is_bench: !!p.isSub, player_image: p.playerImage || null });
+              const jn = p.jerseyNumber != null ? parseInt(String(p.jerseyNumber), 10) : NaN;
+              lineupInserts.push({ match_id: dbMatch.id, team_id: teamBId, player_name: p.name, player_role: p.position || null, batting_order: Number.isFinite(jn) ? jn : (i + 1), jersey_number: Number.isFinite(jn) ? jn : null, formation: p.formation || null, formation_place: p.formationPlace || null, is_captain: p.isCaptain || false, is_vice_captain: false, is_bench: !!p.isSub, player_image: p.playerImage || null });
             }
           }
           if (lineupInserts.length > 0) {
