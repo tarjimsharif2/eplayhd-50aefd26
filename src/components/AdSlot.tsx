@@ -14,7 +14,8 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
   const containerRef = useRef<HTMLDivElement>(null);
   const hasExecuted = useRef(false);
   const hasTrackedImpression = useRef(false);
-  const [isEmpty, setIsEmpty] = useState(false);
+  // Start hidden to avoid CLS: reveal only once the ad injects visible content.
+  const [isEmpty, setIsEmpty] = useState(true);
   const { isBlocked, trackAdClick } = useAdClickProtectionContext();
   const { isAdmin } = useCurrentUserPermissions();
 
@@ -99,7 +100,9 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
         const r = (c as HTMLElement).getBoundingClientRect();
         return r.height > 1 && r.width > 1;
       });
-      setIsEmpty(!hasVisible);
+      // Only reveal once content appears; never re-collapse after reveal
+      // to avoid layout shift after the ad is visible.
+      if (hasVisible) setIsEmpty(false);
     };
     const timers = [setTimeout(check, 800), setTimeout(check, 2500), setTimeout(check, 5000)];
     return () => timers.forEach(clearTimeout);
@@ -108,7 +111,7 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
   useEffect(() => {
     hasExecuted.current = false;
     hasTrackedImpression.current = false;
-    setIsEmpty(false);
+    setIsEmpty(true);
   }, [position]);
 
   // Don't render if admin, blocked, or no ad code
