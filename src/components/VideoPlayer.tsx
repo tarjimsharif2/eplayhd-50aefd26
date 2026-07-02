@@ -612,6 +612,13 @@ const VideoPlayer = ({ url, type, headers, onStreamError, onStreamSuccess }: Vid
 
   return (
     <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden group">
+      {countdown > 0 && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black">
+          <div className="text-5xl font-bold text-primary tabular-nums">{countdown}</div>
+          <p className="text-white/70 text-sm">Player loading in {countdown}s…</p>
+        </div>
+      )}
+      {countdown === 0 && (
       <iframe
         ref={iframeRef}
         src={iframeSrc}
@@ -639,6 +646,7 @@ const VideoPlayer = ({ url, type, headers, onStreamError, onStreamSuccess }: Vid
         referrerPolicy="unsafe-url"
         loading="eager"
       />
+      )}
       
       {/* Direct embed toggle for iframe streams with headers */}
       {hasCustomHeaders(headers) && (type === 'iframe' || type === 'embed') && (
