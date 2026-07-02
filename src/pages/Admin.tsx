@@ -1692,6 +1692,7 @@ const Admin = () => {
         slider_duration_seconds: siteSettingsForm.slider_duration_seconds || 6,
         player_load_time_seconds: (siteSettingsForm as any).player_load_time_seconds ?? 0,
         default_iframe_url: (siteSettingsForm as any).default_iframe_url || null,
+        default_iframe_enabled: (siteSettingsForm as any).default_iframe_enabled ?? false,
         // Homepage completed matches days
         homepage_completed_days: (siteSettingsForm as any).homepage_completed_days || 2,
         // Homepage channels limit
