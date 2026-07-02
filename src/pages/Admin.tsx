@@ -4755,12 +4755,24 @@ const Admin = () => {
                           <p className="text-xs text-muted-foreground">Countdown shown before the video iframe loads (0 = instant, like Dooplay)</p>
                         </div>
                         <div className="space-y-2 md:col-span-2">
-                          <Label>Default Iframe URL (Fallback Player)</Label>
+                          <div className="flex items-center justify-between gap-4">
+                            <Label>Default Iframe URL (Fallback Player)</Label>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">
+                                {(siteSettingsForm as any).default_iframe_enabled ? 'On' : 'Off'}
+                              </span>
+                              <Switch
+                                checked={!!(siteSettingsForm as any).default_iframe_enabled}
+                                onCheckedChange={(checked) => setSiteSettingsForm({ ...siteSettingsForm, default_iframe_enabled: checked } as any)}
+                              />
+                            </div>
+                          </div>
                           <Input
                             type="url"
                             placeholder="https://example.com/player.html"
                             value={(siteSettingsForm as any).default_iframe_url ?? ''}
                             onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, default_iframe_url: e.target.value } as any)}
+                            disabled={!(siteSettingsForm as any).default_iframe_enabled}
                           />
                           <p className="text-xs text-muted-foreground">Shown on match pages that have no streaming servers. Hidden automatically once any server is added. No name, no server list.</p>
                         </div>
