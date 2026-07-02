@@ -2615,7 +2615,7 @@ const Admin = () => {
               ) : (() => {
                 const filteredMatches = matches
                   ?.filter((match) => {
-                    if (matchStatusFilter !== 'all' && match.status !== matchStatusFilter) return false;
+                    if (matchStatusFilter !== 'all' && getEffectiveMatchStatus(match) !== matchStatusFilter) return false;
                     if (matchSportFilter !== 'all' && match.sport_id !== matchSportFilter) return false;
                     if (!matchSearchQuery.trim()) return true;
                     const query = matchSearchQuery.toLowerCase();
@@ -2891,7 +2891,7 @@ const Admin = () => {
                     ?.filter(m => m.page_type === 'page')
                     .filter((match) => {
                       // Status filter
-                      if (streamingStatusFilter !== 'all' && match.status !== streamingStatusFilter) return false;
+                      if (streamingStatusFilter !== 'all' && getEffectiveMatchStatus(match) !== streamingStatusFilter) return false;
                       // Sport filter
                       if (streamingSportFilter !== 'all' && match.sport_id !== streamingSportFilter) return false;
                       // Search filter
