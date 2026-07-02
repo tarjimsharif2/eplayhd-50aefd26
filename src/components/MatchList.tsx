@@ -1,6 +1,8 @@
 import { useMatches, useSports } from "@/hooks/useSportsData";
 import { usePublicSiteSettings } from "@/hooks/usePublicSiteSettings";
 import MatchCard from "@/components/MatchCard";
+import EventCard from "@/components/EventCard";
+import { useEvents, getEffectiveEventStatus } from "@/hooks/useEvents";
 import MatchFilters, { MatchFilter } from "@/components/MatchFilters";
 import BannerSlider from "@/components/BannerSlider";
 import { motion } from "framer-motion";
@@ -11,6 +13,7 @@ import { Button } from "@/components/ui/button";
 const MatchList = () => {
   const { data: matches, isLoading, error } = useMatches();
   const { data: sports } = useSports();
+  const { data: events } = useEvents();
   const { data: publicSettings } = usePublicSiteSettings();
   const [activeFilter, setActiveFilter] = useState<MatchFilter>('all');
   const [activeSportFilter, setActiveSportFilter] = useState<string>('all');
@@ -495,8 +498,27 @@ const MatchList = () => {
           />
         </div>
 
-        {filteredMatches.length > 0 ? (
+        {filteredMatches.length > 0 || (events && events.length > 0) ? (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {(events ?? [])
+              .filter((e) => {
+                const st = getEffectiveEventStatus(e);
+                if (activeFilter === 'all') return true;
+                if (activeFilter === 'live') return st === 'live';
+                if (activeFilter === 'upcoming') return st === 'upcoming';
+                if (activeFilter === 'completed') return st === 'completed';
+                return true;
+              })
+              .sort((a, b) => {
+                const rank = (st: string) => (st === 'live' ? 0 : st === 'upcoming' ? 1 : 2);
+                const ra = rank(getEffectiveEventStatus(a));
+                const rb = rank(getEffectiveEventStatus(b));
+                if (ra !== rb) return ra - rb;
+                return new Date(a.event_start_time).getTime() - new Date(b.event_start_time).getTime();
+              })
+              .map((e, i) => (
+                <EventCard key={e.id} event={e} index={i} />
+              ))}
             {filteredMatches.map((match, index) => (
               <MatchCard 
                 key={match.id} 

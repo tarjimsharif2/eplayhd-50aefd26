@@ -20,6 +20,7 @@ const TournamentPage = lazy(() => import("./pages/TournamentPage"));
 const ChannelPage = lazy(() => import("./pages/ChannelPage"));
 const ChannelsPage = lazy(() => import("./pages/ChannelsPage"));
 const TournamentsPage = lazy(() => import("./pages/TournamentsPage"));
+const EventPage = lazy(() => import("./pages/EventPage"));
 const DynamicPage = lazy(() => import("./pages/DynamicPage"));
 const AdsTxt = lazy(() => import("./pages/AdsTxt"));
 const Sitemap = lazy(() => import("./pages/Sitemap"));
@@ -189,6 +190,7 @@ const App = () => (
                   <Route path="/channel/:slug" element={<ChannelPage />} />
                   <Route path="/channels" element={<ChannelsPage />} />
                   <Route path="/tournaments" element={<TournamentsPage />} />
+                  <Route path="/event/:slug" element={<EventPage />} />
                   <Route path="/page/:slug" element={<DynamicPage />} />
                   {/* Handle both /ads.txt and /ads.txt/ */}
                   <Route path="/ads.txt/*" element={<AdsTxt />} />

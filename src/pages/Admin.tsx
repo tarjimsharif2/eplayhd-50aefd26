@@ -62,6 +62,7 @@ import MaintenanceModeManager from "@/components/MaintenanceModeManager";
 import ChannelsManager from "@/components/ChannelsManager";
 import MenuManager from "@/components/MenuManager";
 import BottomNavManager from "@/components/BottomNavManager";
+import EventsManager from "@/components/EventsManager";
 import TournamentVenueManager from "@/components/TournamentVenueManager";
 import { useTournamentVenues } from "@/hooks/useTournamentVenues";
 import VenueComboInput from "@/components/VenueComboInput";
@@ -1746,6 +1747,11 @@ const Admin = () => {
                 {canManageMatches && (
                   <TabsTrigger value="matches" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
                     Matches
+                  </TabsTrigger>
+                )}
+                {canManageMatches && (
+                  <TabsTrigger value="events" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                    Events
                   </TabsTrigger>
                 )}
                 {canManageMatches && (
@@ -5037,6 +5043,11 @@ const Admin = () => {
             {/* Maintenance Mode Tab */}
             <TabsContent value="maintenance" className="space-y-6">
               <MaintenanceModeManager />
+            </TabsContent>
+
+            {/* Events Tab */}
+            <TabsContent value="events" className="space-y-6">
+              <EventsManager />
             </TabsContent>
           </Tabs>
         </div>

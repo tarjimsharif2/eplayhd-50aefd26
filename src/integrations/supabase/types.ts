@@ -470,6 +470,121 @@ export type Database = {
         }
         Relationships: []
       }
+      event_streaming_servers: {
+        Row: {
+          created_at: string
+          display_order: number
+          event_id: string
+          id: string
+          is_active: boolean
+          origin_value: string | null
+          referer_value: string | null
+          server_name: string
+          server_type: string
+          server_url: string
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          event_id: string
+          id?: string
+          is_active?: boolean
+          origin_value?: string | null
+          referer_value?: string | null
+          server_name: string
+          server_type?: string
+          server_url: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          event_id?: string
+          id?: string
+          is_active?: boolean
+          origin_value?: string | null
+          referer_value?: string | null
+          server_name?: string
+          server_type?: string
+          server_url?: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_streaming_servers_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_end_time: string | null
+          event_start_time: string
+          id: string
+          is_active: boolean
+          is_priority: boolean
+          location: string | null
+          logo_url: string | null
+          name: string
+          slug: string
+          status: string
+          tournament_id: string | null
+          updated_at: string
+          year: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_end_time?: string | null
+          event_start_time: string
+          id?: string
+          is_active?: boolean
+          is_priority?: boolean
+          location?: string | null
+          logo_url?: string | null
+          name: string
+          slug: string
+          status?: string
+          tournament_id?: string | null
+          updated_at?: string
+          year?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_end_time?: string | null
+          event_start_time?: string
+          id?: string
+          is_active?: boolean
+          is_priority?: boolean
+          location?: string | null
+          logo_url?: string | null
+          name?: string
+          slug?: string
+          status?: string
+          tournament_id?: string | null
+          updated_at?: string
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       football_leagues: {
         Row: {
           created_at: string | null
