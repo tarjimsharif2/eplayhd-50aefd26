@@ -379,6 +379,7 @@ const Admin = () => {
         custom_footer_code: siteSettings.custom_footer_code || '',
         slider_duration_seconds: (siteSettings as any).slider_duration_seconds || 6,
         player_load_time_seconds: (siteSettings as any).player_load_time_seconds ?? 0,
+        default_iframe_url: (siteSettings as any).default_iframe_url ?? '',
         homepage_completed_days: (siteSettings as any).homepage_completed_days || 2,
         homepage_channels_limit: (siteSettings as any).homepage_channels_limit || 8,
         admin_slug: (siteSettings as any).admin_slug || 'admin',
