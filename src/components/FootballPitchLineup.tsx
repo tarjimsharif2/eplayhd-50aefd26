@@ -614,10 +614,10 @@ const FootballPitchLineup = ({
         </div>
 
         <div className="flex flex-col gap-0.5">
-          {rowsB.map(r => (
+          {rowsB.map((row, idx) => (
             <PitchRow
-              key={r}
-              row={groupsB[r]!}
+              key={`b-${idx}`}
+              row={row}
               goals={goalsTeamB}
               subs={teamBSubs}
               primaryColor={colorB.primary}
@@ -635,10 +635,10 @@ const FootballPitchLineup = ({
       {/* ── TEAM A – bottom half (FW toward centre → GK at bottom) ── */}
       <div className="relative z-10 pt-0 pb-2" style={{ minHeight: '47%' }}>
         <div className="flex flex-col gap-0.5">
-          {[...rowsA].reverse().map(r => (
+          {[...rowsA].reverse().map((row, idx) => (
             <PitchRow
-              key={r}
-              row={groupsA[r]!}
+              key={`a-${idx}`}
+              row={row}
               goals={goalsTeamA}
               subs={teamASubs}
               primaryColor={colorA.primary}
