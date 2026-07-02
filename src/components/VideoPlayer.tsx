@@ -590,23 +590,6 @@ const VideoPlayer = ({ url, type, headers, onStreamError, onStreamSuccess }: Vid
 
   return (
     <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden group">
-      {/* Loading spinner */}
-      {isIframeLoading && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10 bg-black px-4 text-center">
-          <Loader2 className="w-10 h-10 text-primary animate-spin" />
-          <p className="text-white/80 text-sm">
-            {loadingSeconds < 10
-              ? 'Stream loading...'
-              : loadingSeconds < 25
-              ? 'Still loading, please wait...'
-              : 'Slow network detected. Hang on...'}
-          </p>
-          {loadingSeconds >= 15 && (
-            <p className="text-white/50 text-xs">{loadingSeconds}s</p>
-          )}
-        </div>
-      )}
-      
       <iframe
         ref={iframeRef}
         src={iframeSrc}
