@@ -447,13 +447,14 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
             const isManualSource = ((match as any).score_source ?? 'manual') === 'manual';
             const manualScoreboardEnabled = !!(match as any).manual_scoreboard_enabled;
             const scoreboardAllowed = !isManualSource || manualScoreboardEnabled;
-            const hasFootballScore = isFootball && scoreboardAllowed && (displayStatus === 'live' || displayStatus === 'completed');
+            const isFootballActive = isFootball && (displayStatus === 'live' || displayStatus === 'completed');
+            const hasFootballScore = isFootballActive && scoreboardAllowed;
             
             // Parse goal data from match - ensure arrays
             const goalsTeamA: GoalEvent[] = Array.isArray(match.goals_team_a) ? match.goals_team_a as GoalEvent[] : [];
             const goalsTeamB: GoalEvent[] = Array.isArray(match.goals_team_b) ? match.goals_team_b as GoalEvent[] : [];
-            
-            if (isFootball && hasFootballScore) {
+
+            if (isFootballActive) {
               // Football Score Display - Horizontal layout with scores
               const formatTime = (min: number, sec: number) => {
                 return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
@@ -462,8 +463,8 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
               return (
                 <div className="py-3">
                   <div className="flex items-center justify-center gap-3">
-                    {/* Team A with Score */}
-                    <div className="flex items-center gap-3">
+                     {/* Team A with Score */}
+                     <div className="flex items-center gap-3">
                       <div className="flex flex-col items-center gap-1">
                         <div 
                           className={`w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center p-1.5 ${
@@ -482,12 +483,18 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                         <span className="font-medium text-foreground text-xs leading-tight text-center max-w-[80px] line-clamp-2">{teamA.name}</span>
                       </div>
                       {/* Score A */}
-                      <span className="text-3xl md:text-4xl font-bold text-foreground">{match.score_a || '0'}</span>
+                      {hasFootballScore && (
+                        <span className="text-3xl md:text-4xl font-bold text-foreground">{match.score_a || '0'}</span>
+                      )}
                     </div>
 
                     {/* Score Separator with Match Status */}
                     <div className="flex flex-col items-center">
-                      <span className="text-xl md:text-2xl font-bold text-muted-foreground/60">-</span>
+                      {hasFootballScore ? (
+                        <span className="text-xl md:text-2xl font-bold text-muted-foreground/60">-</span>
+                      ) : (
+                        <span className="text-xs font-bold text-muted-foreground/60">VS</span>
+                      )}
                       {/* Live minute indicator */}
                       {displayStatus === 'live' && match.match_minute != null && (
                         <div className="mt-1">
@@ -510,7 +517,9 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                     {/* Team B with Score */}
                     <div className="flex items-center gap-3">
                       {/* Score B */}
-                      <span className="text-3xl md:text-4xl font-bold text-foreground">{match.score_b || '0'}</span>
+                      {hasFootballScore && (
+                        <span className="text-3xl md:text-4xl font-bold text-foreground">{match.score_b || '0'}</span>
+                      )}
                       <div className="flex flex-col items-center gap-1">
                         <div 
                           className={`w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center p-1.5 ${
