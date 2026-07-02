@@ -1097,14 +1097,19 @@ const Admin = () => {
           if (lineupTeamA) {
             for (let i = 0; i < lineupTeamA.length; i++) {
               const player = lineupTeamA[i];
+              const jerseyNumber = player.jerseyNumber != null ? parseInt(String(player.jerseyNumber), 10) : NaN;
               lineupInserts.push({
                 match_id: match.id,
                 team_id: teamA.id,
                 player_name: player.name,
                 player_role: player.position || null,
-                batting_order: i + 1,
+                batting_order: Number.isFinite(jerseyNumber) ? jerseyNumber : i + 1,
+                jersey_number: Number.isFinite(jerseyNumber) ? jerseyNumber : null,
+                formation: player.formation || null,
+                formation_place: player.formationPlace || null,
                 is_captain: player.isCaptain || false,
                 is_vice_captain: false,
+                is_bench: !!player.isSub,
               });
             }
           }
@@ -1112,14 +1117,19 @@ const Admin = () => {
           if (lineupTeamB) {
             for (let i = 0; i < lineupTeamB.length; i++) {
               const player = lineupTeamB[i];
+              const jerseyNumber = player.jerseyNumber != null ? parseInt(String(player.jerseyNumber), 10) : NaN;
               lineupInserts.push({
                 match_id: match.id,
                 team_id: teamB.id,
                 player_name: player.name,
                 player_role: player.position || null,
-                batting_order: i + 1,
+                batting_order: Number.isFinite(jerseyNumber) ? jerseyNumber : i + 1,
+                jersey_number: Number.isFinite(jerseyNumber) ? jerseyNumber : null,
+                formation: player.formation || null,
+                formation_place: player.formationPlace || null,
                 is_captain: player.isCaptain || false,
                 is_vice_captain: false,
+                is_bench: !!player.isSub,
               });
             }
           }

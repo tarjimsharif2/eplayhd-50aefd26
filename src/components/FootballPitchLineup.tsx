@@ -283,7 +283,7 @@ const detectFormation = (players: Player[]): string | null => {
   return null;
 };
 
-/* ─── Build pitch rows honoring ESPN formation (e.g. "4-2-3-1") ─── */
+/* ─── Build pitch rows honoring ESPN formation + ESPN positions ─── */
 const buildRowsForFormation = (
   starters: Player[],
   formation: string | null,
@@ -295,33 +295,34 @@ const buildRowsForFormation = (
     ? formation.split('-').map(n => parseInt(n, 10)).filter(n => n > 0)
     : null;
 
-  // ─── Preferred path: trust ESPN's formation_place (1..11) ───
-  // Place 1 = GK, then defenders → midfielders → forwards in ESPN order.
-  const withPlace = starters.filter(p => p.formation_place != null);
-  const canUsePlace =
-    sizes !== null &&
-    withPlace.length === starters.length &&
-    starters.length === 1 + sizes.reduce((a, b) => a + b, 0);
+  // Preferred: ESPN formation defines row sizes, ESPN position defines the row/side.
+  // Do NOT slice by raw formation_place alone: ESPN can number a CM before CBs.
+  const parsed = starters.map(p => ({
+    player: p,
+    ...parsePosition(p.player_role),
+    place: p.formation_place ?? 999,
+  }));
+  const espnGk = parsed
+    .filter(p => p.row === 0 || p.place === 1)
+    .sort((a, b) => a.place - b.place);
+  const espnOutfield = parsed
+    .filter(p => p.row !== 0 && p.place !== 1)
+    .sort((a, b) => a.row - b.row || a.sideOrder - b.sideOrder || a.place - b.place);
 
-  if (canUsePlace && sizes) {
-    const ordered = [...starters].sort(
-      (a, b) => (a.formation_place ?? 999) - (b.formation_place ?? 999),
-    );
-    // GK
-    rows.push([{ player: ordered[0], sideOrder: 50 }]);
-    let cursor = 1;
+  if (sizes && espnGk.length >= 1 && sizes.reduce((a, b) => a + b, 0) === espnOutfield.length) {
+    rows.push([{ player: espnGk[0].player, sideOrder: 50 }]);
+    let cursor = 0;
     for (const size of sizes) {
-      const slice = ordered.slice(cursor, cursor + size);
-      // Spread evenly left→right across the row
-      const rowItems = slice.map((player, i) => ({
-        player,
-        sideOrder: size === 1 ? 50 : 10 + (80 * i) / (size - 1),
-      }));
-      rows.push(rowItems);
+      const slice = espnOutfield.slice(cursor, cursor + size);
+      rows.push(
+        slice.map(({ player, sideOrder }) => ({
+          player,
+          sideOrder,
+        })),
+      );
       cursor += size;
     }
-    const outSizes = rows.slice(1).map(r => r.length);
-    return { rows, formation: outSizes.join('-') };
+    return { rows, formation: formation! };
   }
 
   // ─── Fallback: parse position strings ───
@@ -451,12 +452,6 @@ const PlayerChip = ({ player, goals, subs, primaryColor, secondaryColor }: Playe
   const scored = goals.filter(g => nameMatch(g.player, player.player_name));
   const subOut = subs.find(s => nameMatch(s.player_out, player.player_name));
   const jerseyNum = player.jersey_number ?? player.batting_order ?? null;
-  // Display: full name if short, otherwise "F. LastName"
-  const parts = player.player_name.trim().split(/\s+/);
-  const displayName =
-    player.player_name.length <= 14 || parts.length === 1
-      ? player.player_name
-      : `${parts[0][0]}. ${parts.slice(1).join(' ')}`;
 
   return (
     <div className="flex flex-col items-center gap-0.5" style={{ minWidth: 52, maxWidth: 74 }}>
@@ -508,7 +503,7 @@ const PlayerChip = ({ player, goals, subs, primaryColor, secondaryColor }: Playe
         className="text-[9px] font-bold text-center leading-tight drop-shadow"
         style={{ maxWidth: 72, color: 'white', wordBreak: 'break-word' }}
       >
-        {displayName}
+        {player.player_name}
       </span>
 
       {/* Position label */}
