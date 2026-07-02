@@ -2,6 +2,7 @@ import { useEffect, useRef, useMemo, forwardRef, useState } from 'react';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { trackAdImpression } from '@/hooks/useGoogleAnalytics';
 import { useAdClickProtectionContext } from '@/components/AdClickProtectionProvider';
+import { useCurrentUserPermissions } from '@/hooks/usePermissions';
 
 interface AdSlotProps {
   position: 'header' | 'sidebar' | 'footer' | 'in_article' | 'popup';
@@ -13,11 +14,12 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
   const containerRef = useRef<HTMLDivElement>(null);
   const hasExecuted = useRef(false);
   const hasTrackedImpression = useRef(false);
-  const [hasContent, setHasContent] = useState(false);
+  const [isEmpty, setIsEmpty] = useState(false);
   const { isBlocked, trackAdClick } = useAdClickProtectionContext();
+  const { isAdmin } = useCurrentUserPermissions();
 
   const adCode = useMemo(() => {
-    if (!settings?.ads_enabled) return null;
+    if (!settings?.ads_enabled || isAdmin) return null;
 
     const adCodeMap: Record<string, string | null | undefined> = {
       header: settings.header_ad_code,
@@ -28,7 +30,7 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
     };
 
     return adCodeMap[position] || null;
-  }, [settings, position]);
+  }, [settings, position, isAdmin]);
 
   useEffect(() => {
     if (!adCode || !containerRef.current || hasExecuted.current || isBlocked) return;
@@ -87,14 +89,30 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
     };
   }, [adCode, position, isBlocked, trackAdClick]);
 
+  // Collapse the slot if the ad doesn't render any visible content
+  useEffect(() => {
+    if (!adCode || !containerRef.current) return;
+    const el = containerRef.current;
+    const check = () => {
+      const hasVisible = Array.from(el.children).some((c) => {
+        if (c.tagName === 'SCRIPT') return false;
+        const r = (c as HTMLElement).getBoundingClientRect();
+        return r.height > 1 && r.width > 1;
+      });
+      setIsEmpty(!hasVisible);
+    };
+    const timers = [setTimeout(check, 800), setTimeout(check, 2500), setTimeout(check, 5000)];
+    return () => timers.forEach(clearTimeout);
+  }, [adCode]);
+
   useEffect(() => {
     hasExecuted.current = false;
     hasTrackedImpression.current = false;
-    setHasContent(false);
+    setIsEmpty(false);
   }, [position]);
 
-  // Don't render if blocked or no ad code
-  if (!adCode || isBlocked) return null;
+  // Don't render if admin, blocked, or no ad code
+  if (!adCode || isBlocked || isAdmin) return null;
 
   return (
     <div 
@@ -107,7 +125,7 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
       style={{
         width: '100%',
         overflow: 'visible',
-        display: 'block',
+        display: isEmpty ? 'none' : 'block',
       }}
       data-ad-position={position}
     />
