@@ -26,6 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Match, GoalEvent } from '@/hooks/useSportsData';
 import { MapPin, Clock, Calendar, Tv, Server, Loader2, Radio, Trophy, ChevronDown } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 const MatchPage = () => {
   const { slug } = useParams<{ slug: string }>();
