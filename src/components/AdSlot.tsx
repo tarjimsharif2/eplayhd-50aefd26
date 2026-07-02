@@ -108,7 +108,7 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
   useEffect(() => {
     hasExecuted.current = false;
     hasTrackedImpression.current = false;
-    setHasContent(false);
+    setIsEmpty(false);
   }, [position]);
 
   // Don't render if admin, blocked, or no ad code
