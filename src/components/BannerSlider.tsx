@@ -168,7 +168,7 @@ const BannerSlider = () => {
     const nextUrl = banners[nextIdx]?.image_url;
     if (nextUrl) {
       const img = new Image();
-      img.src = nextUrl;
+      img.src = optimizeImage(nextUrl, { width: 1600, quality: 70 });
     }
   }, [banners, currentIndex]);
 
@@ -352,7 +352,9 @@ const BannerSlider = () => {
         >
           {/* Background Image */}
           <img
-            src={currentBanner.image_url}
+            src={optimizeImage(currentBanner.image_url, { width: 1600, quality: 70 })}
+            srcSet={optimizeSrcSet(currentBanner.image_url, 800, { quality: 70 })}
+            sizes="100vw"
             alt={currentBanner.title}
             loading="eager"
             decoding="async"
