@@ -16,7 +16,15 @@ const Footer = () => {
   const showDisclaimer = (settings as any)?.show_disclaimer !== false;
   const telegramLink = settings?.telegram_link || "#";
   // Only show tournaments that have show_in_menu enabled (same setting as header)
-  const activeTournaments = tournaments?.filter(t => t.is_active && t.show_in_menu && !t.is_completed) || [];
+  const activeTournaments = tournaments?.filter((t: any) => {
+    if (!(t.is_active && t.show_in_menu && !t.is_completed)) return false;
+    if (t.end_date) {
+      const d = new Date(t.end_date);
+      const today = new Date(); today.setHours(0,0,0,0);
+      if (d < today) return false;
+    }
+    return true;
+  }) || [];
 
   // Group tournaments by sport
   const tournamentsBySport = useMemo(() => {
