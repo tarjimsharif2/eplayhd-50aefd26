@@ -302,18 +302,18 @@ const buildRowsForFormation = (
     ...parsePosition(p.player_role),
     place: p.formation_place ?? 999,
   }));
-  const gk = parsed
+  const espnGk = parsed
     .filter(p => p.row === 0 || p.place === 1)
     .sort((a, b) => a.place - b.place);
-  const outfield = parsed
+  const espnOutfield = parsed
     .filter(p => p.row !== 0 && p.place !== 1)
     .sort((a, b) => a.row - b.row || a.sideOrder - b.sideOrder || a.place - b.place);
 
-  if (sizes && gk.length >= 1 && sizes.reduce((a, b) => a + b, 0) === outfield.length) {
-    rows.push([{ player: gk[0].player, sideOrder: 50 }]);
+  if (sizes && espnGk.length >= 1 && sizes.reduce((a, b) => a + b, 0) === espnOutfield.length) {
+    rows.push([{ player: espnGk[0].player, sideOrder: 50 }]);
     let cursor = 0;
     for (const size of sizes) {
-      const slice = outfield.slice(cursor, cursor + size);
+      const slice = espnOutfield.slice(cursor, cursor + size);
       rows.push(
         slice.map(({ player, sideOrder }) => ({
           player,
@@ -322,7 +322,7 @@ const buildRowsForFormation = (
       );
       cursor += size;
     }
-    return { rows, formation };
+    return { rows, formation: formation! };
   }
 
   // ─── Fallback: parse position strings ───
