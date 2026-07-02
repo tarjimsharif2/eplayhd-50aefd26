@@ -537,13 +537,13 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         {/* Team A Goals */}
                         <div className="space-y-1">
-                          {goalsTeamA.map((goal: any, idx: number) => (
+                          {goalsTeamA.filter((g: any) => g?.player).map((goal: any, idx: number) => (
                             <div key={idx} className="flex items-center gap-1 text-muted-foreground">
                               <span className="text-green-500">⚽</span>
                               <span className="font-medium text-foreground truncate">{goal.player}</span>
-                              <span className="text-primary/80">{goal.minute}</span>
+                              {goal.minute && <span className="text-primary/80">{goal.minute}{String(goal.minute).endsWith("'") ? '' : "'"}</span>}
                               {goal.assist && (
-                                <span className="text-muted-foreground/70 truncate">({goal.assist})</span>
+                                <span className="text-muted-foreground/70 truncate">(a: {goal.assist})</span>
                               )}
                               {goal.type === 'penalty' && <span className="text-yellow-500">(P)</span>}
                               {goal.type === 'own_goal' && <span className="text-red-500">(OG)</span>}
@@ -552,14 +552,14 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                         </div>
                         {/* Team B Goals */}
                         <div className="space-y-1 text-right">
-                          {goalsTeamB.map((goal: any, idx: number) => (
+                          {goalsTeamB.filter((g: any) => g?.player).map((goal: any, idx: number) => (
                             <div key={idx} className="flex items-center gap-1 justify-end text-muted-foreground">
                               {goal.type === 'penalty' && <span className="text-yellow-500">(P)</span>}
                               {goal.type === 'own_goal' && <span className="text-red-500">(OG)</span>}
                               {goal.assist && (
-                                <span className="text-muted-foreground/70 truncate">({goal.assist})</span>
+                                <span className="text-muted-foreground/70 truncate">(a: {goal.assist})</span>
                               )}
-                              <span className="text-primary/80">{goal.minute}</span>
+                              {goal.minute && <span className="text-primary/80">{goal.minute}{String(goal.minute).endsWith("'") ? '' : "'"}</span>}
                               <span className="font-medium text-foreground truncate">{goal.player}</span>
                               <span className="text-green-500">⚽</span>
                             </div>
