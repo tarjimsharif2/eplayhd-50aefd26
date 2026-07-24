@@ -1,0 +1,1 @@
+DELETE FROM public.football_leagues WHERE league_code IN ('global.friendly','fifa.friendly','friendly');

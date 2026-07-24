@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
       { code: 'fifa.worldq.afc', name: 'FIFA World Cup Qualifiers (AFC)' },
       { code: 'fifa.worldq.caf', name: 'FIFA World Cup Qualifiers (CAF)' },
       { code: 'fifa.worldq.concacaf', name: 'FIFA World Cup Qualifiers (CONCACAF)' },
-      { code: 'global.friendly', name: 'Club Friendly' },
+      { code: 'club.friendly', name: 'Club Friendly' },
       { code: 'uefa.wchampions', name: 'UEFA Women\'s Champions League' },
       { code: 'fifa.wworld', name: 'FIFA Women\'s World Cup' },
     ];
