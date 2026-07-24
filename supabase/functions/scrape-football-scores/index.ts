@@ -78,6 +78,9 @@ const ESPN_LEAGUE_ALIASES: Record<string, string> = {
   'sau.psl': 'ksa.1',
   'ksa.psl': 'ksa.1',
   'ksa.spl': 'ksa.1',
+  'global.friendly': 'club.friendly',
+  'fifa.friendly': 'club.friendly',
+  'friendly': 'club.friendly',
 };
 
 function normalizeESPNLeagueCode(league: string): string {
